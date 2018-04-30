@@ -1,3 +1,9 @@
+/*
+Copyright (C) 2018 Elisa Oyj
+
+SPDX-License-Identifier: Apache-2.0
+*/
+
 package fakeprovider
 
 import (
