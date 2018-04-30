@@ -1,0 +1,88 @@
+---
+kind: ServiceAccount
+apiVersion: v1
+metadata:
+  name: openshift-lb-controller
+  namespace: openshift-lb-controller
+---
+kind: ClusterRoleBinding
+apiVersion: rbac.authorization.k8s.io/v1beta1
+metadata:
+  name: openshift-lb-controller
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: system:router
+subjects:
+- kind: ServiceAccount
+  name: openshift-lb-controller
+  namespace: openshift-lb-controller
+---
+kind: ImageStream
+apiVersion: v1
+metadata:
+  name: openshift-lb-controller
+spec:
+  tags:
+    - name: latest
+      from:
+        kind: DockerImage
+        name: <yourdockeregistry>/openshift-lb-controller
+      importPolicy: {}
+---
+kind: DeploymentConfig
+apiVersion: v1
+metadata:
+  name: openshift-lb-controller
+spec:
+  strategy:
+    type: Rolling
+  triggers:
+  - type: ImageChange
+    imageChangeParams:
+      automatic: true
+      containerNames:
+      - openshift-lb-controller
+      from:
+        kind: ImageStreamTag
+        name: "openshift-lb-controller:latest"
+      lastTriggeredImage: ''
+  - type: ConfigChange
+  replicas: 1
+  selector:
+    name: openshift-lb-controller
+  template:
+    metadata:
+      labels:
+        name: openshift-lb-controller
+    spec:
+      serviceAccountName: openshift-lb-controller
+      containers:
+      - name: openshift-lb-controller
+        image: " "
+        dnsPolicy: ClusterFirst
+        restartPolicy: Always
+        terminationMessagePath: "/dev/termination-log"
+        imagePullPolicy: IfNotPresent
+        capabilities: {}
+        env:
+        - name: PROVIDER
+          value: "F5"
+        - name: SUFFIXHOST
+          value: "dc.elisa.fi"
+        - name: CLUSTER_PRIO
+          value: '1'
+        - name: CLUSTERALIAS
+          value: "dc1"
+        - name: F5_ADDR
+          value: "1.1.1.1,2.2.2.2"
+        - name: F5_USER
+          valueFrom:
+            secretKeyRef:
+              key: username
+              name: f5
+        - name: F5_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              key: password
+              name: f5

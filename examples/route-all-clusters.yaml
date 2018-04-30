@@ -1,0 +1,18 @@
+kind: Route
+apiVersion: v1
+metadata:
+  name: demoapp-prod
+  labels:
+    name: demoapp-prod
+    net: ext
+spec:
+  host: demoapp.dc.elisa.fi
+  to:
+    kind: Service
+    name: demoapp-prod
+    port:
+       targetPort: demoapp-prod
+  tls:
+    termination: edge
+    insecureEdgeTerminationPolicy: Redirect
+  wildcardPolicy: None
