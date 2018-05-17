@@ -1,5 +1,5 @@
 CONTROLLER_NAME  := openshift-lb-controller
-IMAGE := <yourregistry>/$(CONTROLLER_NAME)
+IMAGE := yourregistry/$(CONTROLLER_NAME)
 .PHONY: install_deps build build-image test
 
 test:

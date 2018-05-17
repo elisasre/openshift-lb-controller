@@ -58,13 +58,13 @@ func (f *Fakeprovider) ModifyPool(name string, port string, loadBalancingMethod 
 }
 
 // CreateMonitor creates new monitor
-func (f *Fakeprovider) CreateMonitor(name string, port string, host string, uri string, httpMethod string, interval int, timeout int) error {
+func (f *Fakeprovider) CreateMonitor(host string, port string, uri string, httpMethod string, interval int, timeout int) error {
 	f.addCall("CreateMonitor")
 	return nil
 }
 
 // ModifyMonitor modifies monitor
-func (f *Fakeprovider) ModifyMonitor(name string, port string, host string, uri string, httpMethod string, interval int, timeout int) error {
+func (f *Fakeprovider) ModifyMonitor(host string, port string, uri string, httpMethod string, interval int, timeout int) error {
 	f.addCall("ModifyMonitor")
 	return nil
 }
