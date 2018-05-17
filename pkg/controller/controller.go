@@ -30,6 +30,7 @@ const (
 	healthCheckMethodAnnotation  = "route.elisa.fi/method"
 	poolRouteMethodAnnotation    = "route.elisa.fi/lbmethod"
 	poolPGARouteMethodAnnotation = "route.elisa.fi/poolpga"
+	customHostAnnotation         = "route.elisa.fi/lbenabled"
 )
 
 // RouteController watches the kubernetes api for changes to routes
@@ -123,53 +124,50 @@ func (c *RouteController) cleanUp() {
 }
 
 func (c *RouteController) checkExternalLBDoesExists(host string, uri string, httpMethod string, loadBalancingMethod string, pga int) {
-	s := strings.Split(host, ".")
-	name := s[0]
-
 	c.provider.PreUpdate()
-	err := c.provider.CreatePool(name, "80")
+	err := c.provider.CreatePool(host, "80")
 	if err != nil {
-		log.Printf("Error in CreatePool %s: %v", name, err)
+		log.Printf("Error in CreatePool %s: %v", host, err)
 	}
-	err = c.provider.CreatePool(name, "443")
+	err = c.provider.CreatePool(host, "443")
 	if err != nil {
-		log.Printf("Error in CreatePool %s: %v", name, err)
-	}
-
-	err = c.provider.AddPoolMember(c.clusteralias, name, "80")
-	if err != nil {
-		log.Printf("Error in AddPoolMember %s: %v", name, err)
-	}
-	err = c.provider.AddPoolMember(c.clusteralias, name, "443")
-	if err != nil {
-		log.Printf("Error in AddPoolMember %s: %v", name, err)
+		log.Printf("Error in CreatePool %s: %v", host, err)
 	}
 
-	err = c.provider.ModifyPool(name, "80", loadBalancingMethod, pga)
+	err = c.provider.AddPoolMember(c.clusteralias, host, "80")
 	if err != nil {
-		log.Printf("Error in ModifyPool %s: %v", name, err)
+		log.Printf("Error in AddPoolMember %s: %v", host, err)
 	}
-	err = c.provider.ModifyPool(name, "443", loadBalancingMethod, pga)
+	err = c.provider.AddPoolMember(c.clusteralias, host, "443")
 	if err != nil {
-		log.Printf("Error in ModifyPool %s: %v", name, err)
-	}
-
-	err = c.provider.CreateMonitor(name, "80", host, uri, httpMethod, 5, 16)
-	if err != nil {
-		log.Printf("Error in CreateMonitor %s: %v", name, err)
-	}
-	err = c.provider.CreateMonitor(name, "443", host, uri, httpMethod, 5, 16)
-	if err != nil {
-		log.Printf("Error in CreateMonitor %s: %v", name, err)
+		log.Printf("Error in AddPoolMember %s: %v", host, err)
 	}
 
-	err = c.provider.AddMonitorToPool(name, "80")
+	err = c.provider.ModifyPool(host, "80", loadBalancingMethod, pga)
 	if err != nil {
-		log.Printf("Error in AddMonitorToPool %s: %v", name, err)
+		log.Printf("Error in ModifyPool %s: %v", host, err)
 	}
-	err = c.provider.AddMonitorToPool(name, "443")
+	err = c.provider.ModifyPool(host, "443", loadBalancingMethod, pga)
 	if err != nil {
-		log.Printf("Error in AddMonitorToPool %s: %v", name, err)
+		log.Printf("Error in ModifyPool %s: %v", host, err)
+	}
+
+	err = c.provider.CreateMonitor(host, "80", uri, httpMethod, 5, 16)
+	if err != nil {
+		log.Printf("Error in CreateMonitor %s: %v", host, err)
+	}
+	err = c.provider.CreateMonitor(host, "443", uri, httpMethod, 5, 16)
+	if err != nil {
+		log.Printf("Error in CreateMonitor %s: %v", host, err)
+	}
+
+	err = c.provider.AddMonitorToPool(host, "80")
+	if err != nil {
+		log.Printf("Error in AddMonitorToPool %s: %v", host, err)
+	}
+	err = c.provider.AddMonitorToPool(host, "443")
+	if err != nil {
+		log.Printf("Error in AddMonitorToPool %s: %v", host, err)
 	}
 
 	c.provider.PostUpdate()
@@ -177,22 +175,19 @@ func (c *RouteController) checkExternalLBDoesExists(host string, uri string, htt
 }
 
 func (c *RouteController) checkExternalLBDoesNotExists(host string) {
-	s := strings.Split(host, ".")
-	name := s[0]
-
 	c.provider.PreUpdate()
-	err := c.provider.DeletePoolMember(c.clusteralias, name, "80")
+	err := c.provider.DeletePoolMember(c.clusteralias, host, "80")
 	if err != nil {
-		log.Printf("Error in DeletePoolMember %s: %v", name, err)
+		log.Printf("Error in DeletePoolMember %s: %v", host, err)
 	}
-	err = c.provider.DeletePoolMember(c.clusteralias, name, "443")
+	err = c.provider.DeletePoolMember(c.clusteralias, host, "443")
 	if err != nil {
-		log.Printf("Error in DeletePoolMember %s: %v", name, err)
+		log.Printf("Error in DeletePoolMember %s: %v", host, err)
 	}
 
 	// if 0 members left in pool, cleanup monitor and delete pool
-	c.provider.CheckAndClean(name, "80")
-	c.provider.CheckAndClean(name, "443")
+	c.provider.CheckAndClean(host, "80")
+	c.provider.CheckAndClean(host, "443")
 
 	c.provider.PostUpdate()
 	log.Printf("delete external lb configuration host: %s from clusteralias: %s", host, c.clusteralias)
@@ -201,39 +196,42 @@ func (c *RouteController) checkExternalLBDoesNotExists(host string) {
 func (c *RouteController) updateRoute(old interface{}, obj interface{}) {
 	route := obj.(*v1r.Route)
 	routeold := old.(*v1r.Route)
+
+	_, found := route.Annotations[customHostAnnotation]
+	_, foundold := routeold.Annotations[customHostAnnotation]
+
 	if len(routeold.Status.Ingress) > 0 && len(route.Status.Ingress) > 0 {
 		// if old did not have and now it has
-		if !strings.HasSuffix(routeold.Status.Ingress[0].Host, c.hosttowatch) && strings.HasSuffix(route.Status.Ingress[0].Host, c.hosttowatch) {
+		if (!strings.HasSuffix(routeold.Status.Ingress[0].Host, c.hosttowatch) && strings.HasSuffix(route.Status.Ingress[0].Host, c.hosttowatch)) || (!foundold && found) {
 			// read healthcheck path
 			healthCheckPath, healthCheckMethod, loadBalancingMethod, pga := overrideWithAnnotation(route)
 			c.checkExternalLBDoesExists(route.Status.Ingress[0].Host, healthCheckPath, healthCheckMethod, loadBalancingMethod, pga)
 			// if old have and now it does not have
-		} else if strings.HasSuffix(routeold.Status.Ingress[0].Host, c.hosttowatch) && !strings.HasSuffix(route.Status.Ingress[0].Host, c.hosttowatch) {
+		} else if (strings.HasSuffix(routeold.Status.Ingress[0].Host, c.hosttowatch) && !strings.HasSuffix(route.Status.Ingress[0].Host, c.hosttowatch)) || (!found && foundold) {
 			c.checkExternalLBDoesNotExists(routeold.Status.Ingress[0].Host)
 			// check annotation changes here
-		} else if strings.HasSuffix(route.Status.Ingress[0].Host, c.hosttowatch) {
+		} else if strings.HasSuffix(route.Status.Ingress[0].Host, c.hosttowatch) || found {
 			healthCheckPathold, healthCheckMethodold, loadBalancingMethodold, pgaold := overrideWithAnnotation(routeold)
 			healthCheckPath, healthCheckMethod, loadBalancingMethod, pga := overrideWithAnnotation(route)
-			s := strings.Split(route.Status.Ingress[0].Host, ".")
-			name := s[0]
+			host := route.Status.Ingress[0].Host
 			if loadBalancingMethodold != loadBalancingMethod || pgaold != pga {
-				err := c.provider.ModifyPool(name, "80", loadBalancingMethod, pga)
+				err := c.provider.ModifyPool(host, "80", loadBalancingMethod, pga)
 				if err != nil {
-					log.Printf("Error in ModifyPool %s: %v", name, err)
+					log.Printf("Error in ModifyPool %s: %v", host, err)
 				}
-				err = c.provider.ModifyPool(name, "443", loadBalancingMethod, pga)
+				err = c.provider.ModifyPool(host, "443", loadBalancingMethod, pga)
 				if err != nil {
-					log.Printf("Error in ModifyPool %s: %v", name, err)
+					log.Printf("Error in ModifyPool %s: %v", host, err)
 				}
 			}
 			if healthCheckPathold != healthCheckPath || healthCheckMethodold != healthCheckMethod {
-				err := c.provider.ModifyMonitor(name, "80", route.Status.Ingress[0].Host, healthCheckPath, healthCheckMethod, 5, 16)
+				err := c.provider.ModifyMonitor(host, "80", healthCheckPath, healthCheckMethod, 5, 16)
 				if err != nil {
-					log.Printf("Error in ModifyMonitor %s: %v", name, err)
+					log.Printf("Error in ModifyMonitor %s: %v", host, err)
 				}
-				err = c.provider.ModifyMonitor(name, "443", route.Status.Ingress[0].Host, healthCheckPath, healthCheckMethod, 5, 16)
+				err = c.provider.ModifyMonitor(host, "443", healthCheckPath, healthCheckMethod, 5, 16)
 				if err != nil {
-					log.Printf("Error in ModifyMonitor %s: %v", name, err)
+					log.Printf("Error in ModifyMonitor %s: %v", host, err)
 				}
 			}
 		}
@@ -242,15 +240,17 @@ func (c *RouteController) updateRoute(old interface{}, obj interface{}) {
 
 func (c *RouteController) deleteRoute(obj interface{}) {
 	route := obj.(*v1r.Route)
+	_, found := route.Annotations[customHostAnnotation]
 	// has suffix what we are interested, skip others
-	if strings.HasSuffix(route.Spec.Host, c.hosttowatch) {
+	if strings.HasSuffix(route.Spec.Host, c.hosttowatch) || found {
 		c.checkExternalLBDoesNotExists(route.Spec.Host)
 	}
 }
 func (c *RouteController) createRoute(obj interface{}) {
 	route := obj.(*v1r.Route)
+	_, found := route.Annotations[customHostAnnotation]
 	// has suffix what we are interested, skip others
-	if strings.HasSuffix(route.Spec.Host, c.hosttowatch) {
+	if strings.HasSuffix(route.Spec.Host, c.hosttowatch) || found {
 		// read healthcheck path
 		healthCheckPath, healthCheckMethod, loadBalancingMethod, pga := overrideWithAnnotation(route)
 		c.checkExternalLBDoesExists(route.Spec.Host, healthCheckPath, healthCheckMethod, loadBalancingMethod, pga)

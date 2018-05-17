@@ -155,12 +155,12 @@ func (f5 *ProviderF5) ModifyPool(name string, port string, loadBalancingMethod s
 }
 
 // CreateMonitor creates new monitor
-func (f5 *ProviderF5) CreateMonitor(name string, port string, host string, uri string, httpMethod string, interval int, timeout int) error {
+func (f5 *ProviderF5) CreateMonitor(host string, port string, uri string, httpMethod string, interval int, timeout int) error {
 	scheme := "http"
 	if port == "443" {
 		scheme = "https"
 	}
-	err := f5.session.CreateMonitor(name+"_"+port, scheme, interval, timeout, httpMethod+" "+uri+" HTTP/1.1\r\nHost:"+host+"  \r\nConnection: Close\r\n\r\n", "^HTTP.1.(0|1) ([2|3]0[0-9])", scheme)
+	err := f5.session.CreateMonitor(host+"_"+port, scheme, interval, timeout, httpMethod+" "+uri+" HTTP/1.1\r\nHost:"+host+"  \r\nConnection: Close\r\n\r\n", "^HTTP.1.(0|1) ([2|3]0[0-9])", scheme)
 	if err != nil {
 		if !alreadyExist(err) {
 			return err
@@ -170,7 +170,7 @@ func (f5 *ProviderF5) CreateMonitor(name string, port string, host string, uri s
 }
 
 // ModifyMonitor modifies monitor
-func (f5 *ProviderF5) ModifyMonitor(name string, port string, host string, uri string, httpMethod string, interval int, timeout int) error {
+func (f5 *ProviderF5) ModifyMonitor(host string, port string, uri string, httpMethod string, interval int, timeout int) error {
 	scheme := "http"
 	if port == "443" {
 		scheme = "https"
@@ -180,7 +180,7 @@ func (f5 *ProviderF5) ModifyMonitor(name string, port string, host string, uri s
 		Timeout:    timeout,
 		SendString: httpMethod + " " + uri + " HTTP/1.1\r\nHost:" + host + "  \r\nConnection: Close\r\n\r\n",
 	}
-	err := f5.session.PatchMonitor(name+"_"+port, scheme, config)
+	err := f5.session.PatchMonitor(host+"_"+port, scheme, config)
 	if err != nil {
 		return err
 	}

@@ -43,6 +43,32 @@ func TestCreate(t *testing.T) {
 	}
 
 	obj = &v1.Route{
+		ObjectMeta: metav1.ObjectMeta{
+			Annotations: map[string]string{
+				customHostAnnotation: "enabled",
+			},
+		},
+		Spec: v1.RouteSpec{
+			Host: "leet.com",
+			To:   v1.RouteTargetReference{Name: "other"},
+			TLS:  &v1.TLSConfig{},
+		},
+		Status: v1.RouteStatus{
+			Ingress: []v1.RouteIngress{{}},
+		},
+	}
+
+	fakeRouteController.createRoute(obj)
+
+	if len(fakeRouteController.provider.Calls()) == 0 {
+		t.Errorf("excepted createpool")
+	}
+	fakeRouteController.provider.CleanCalls()
+	if len(fakeRouteController.provider.Calls()) != 0 {
+		t.Errorf("excepted clean calls")
+	}
+
+	obj = &v1.Route{
 		Spec: v1.RouteSpec{
 			Host: "foo.testx.com",
 			To:   v1.RouteTargetReference{Name: "other"},
@@ -71,6 +97,32 @@ func TestDelete(t *testing.T) {
 	obj := &v1.Route{
 		Spec: v1.RouteSpec{
 			Host: "foo.test.com",
+			To:   v1.RouteTargetReference{Name: "other"},
+			TLS:  &v1.TLSConfig{},
+		},
+		Status: v1.RouteStatus{
+			Ingress: []v1.RouteIngress{{}},
+		},
+	}
+
+	fakeRouteController.deleteRoute(obj)
+
+	if len(fakeRouteController.provider.Calls()) == 0 {
+		t.Errorf("excepted deletepool")
+	}
+	fakeRouteController.provider.CleanCalls()
+	if len(fakeRouteController.provider.Calls()) != 0 {
+		t.Errorf("excepted clean calls")
+	}
+
+	obj = &v1.Route{
+		ObjectMeta: metav1.ObjectMeta{
+			Annotations: map[string]string{
+				customHostAnnotation: "enabled",
+			},
+		},
+		Spec: v1.RouteSpec{
+			Host: "leet.com",
 			To:   v1.RouteTargetReference{Name: "other"},
 			TLS:  &v1.TLSConfig{},
 		},
@@ -260,6 +312,96 @@ func TestUpdate(t *testing.T) {
 	if fakeRouteController.provider.Calls()[1] != "CreatePool" {
 		t.Errorf("excepted create")
 	}
+	fakeRouteController.provider.CleanCalls()
+
+	// create
+	obj = &v1.Route{
+		ObjectMeta: metav1.ObjectMeta{
+			Annotations: map[string]string{
+				customHostAnnotation: "enabled",
+			},
+		},
+		Spec: v1.RouteSpec{
+			To:  v1.RouteTargetReference{Name: "other"},
+			TLS: &v1.TLSConfig{},
+		},
+		Status: v1.RouteStatus{
+			Ingress: []v1.RouteIngress{
+				{
+					Host: "foo.com",
+				},
+			},
+		},
+	}
+
+	obj2 = &v1.Route{
+		Spec: v1.RouteSpec{
+			To:  v1.RouteTargetReference{Name: "other"},
+			TLS: &v1.TLSConfig{},
+		},
+		Status: v1.RouteStatus{
+			Ingress: []v1.RouteIngress{
+				{
+					Host: "foo.com",
+				},
+			},
+		},
+	}
+
+	fakeRouteController.updateRoute(obj2, obj)
+
+	if len(fakeRouteController.provider.Calls()) == 0 {
+		t.Errorf("excepted create")
+	}
+	if len(fakeRouteController.provider.Calls()) > 1 && fakeRouteController.provider.Calls()[1] != "CreatePool" {
+		t.Errorf("excepted create")
+	}
+	fakeRouteController.provider.CleanCalls()
+
+	// delete
+	obj = &v1.Route{
+		Spec: v1.RouteSpec{
+			To:  v1.RouteTargetReference{Name: "other"},
+			TLS: &v1.TLSConfig{},
+		},
+		Status: v1.RouteStatus{
+			Ingress: []v1.RouteIngress{
+				{
+					Host: "foobar.com",
+				},
+			},
+		},
+	}
+
+	obj2 = &v1.Route{
+		ObjectMeta: metav1.ObjectMeta{
+			Annotations: map[string]string{
+				customHostAnnotation: "enabled",
+			},
+		},
+		Spec: v1.RouteSpec{
+			To:  v1.RouteTargetReference{Name: "other"},
+			TLS: &v1.TLSConfig{},
+		},
+		Status: v1.RouteStatus{
+			Ingress: []v1.RouteIngress{
+				{
+					Host: "foobar.com",
+				},
+			},
+		},
+	}
+
+	fakeRouteController.updateRoute(obj2, obj)
+
+	if len(fakeRouteController.provider.Calls()) == 0 {
+		t.Errorf("excepted delete")
+	}
+	if len(fakeRouteController.provider.Calls()) > 1 && fakeRouteController.provider.Calls()[1] != "DeletePoolMember" {
+		t.Errorf("excepted delete")
+	}
+	fakeRouteController.provider.CleanCalls()
+
 }
 
 func TestUpdateAnnotation(t *testing.T) {
@@ -390,6 +532,58 @@ func TestUpdateAnnotation(t *testing.T) {
 			Ingress: []v1.RouteIngress{
 				{
 					Host: "foo.test.com",
+				},
+			},
+		},
+	}
+
+	fakeRouteController.updateRoute(obj, obj2)
+
+	if len(fakeRouteController.provider.Calls()) == 0 {
+		t.Errorf("excepted to default poolroutemethod")
+	}
+	fakeRouteController.provider.CleanCalls()
+
+	fakeRouteController.updateRoute(obj2, obj)
+	if len(fakeRouteController.provider.Calls()) == 0 {
+		t.Errorf("excepted to update poolroutemethod")
+	}
+	fakeRouteController.provider.CleanCalls()
+
+	obj = &v1.Route{
+		ObjectMeta: metav1.ObjectMeta{
+			Annotations: map[string]string{
+				poolRouteMethodAnnotation: "test",
+				customHostAnnotation:      "enabled",
+			},
+		},
+		Spec: v1.RouteSpec{
+			To:  v1.RouteTargetReference{Name: "other"},
+			TLS: &v1.TLSConfig{},
+		},
+		Status: v1.RouteStatus{
+			Ingress: []v1.RouteIngress{
+				{
+					Host: "foo.com",
+				},
+			},
+		},
+	}
+
+	obj2 = &v1.Route{
+		ObjectMeta: metav1.ObjectMeta{
+			Annotations: map[string]string{
+				customHostAnnotation: "enabled",
+			},
+		},
+		Spec: v1.RouteSpec{
+			To:  v1.RouteTargetReference{Name: "other"},
+			TLS: &v1.TLSConfig{},
+		},
+		Status: v1.RouteStatus{
+			Ingress: []v1.RouteIngress{
+				{
+					Host: "foo.com",
 				},
 			},
 		},
