@@ -152,11 +152,11 @@ func (c *RouteController) checkExternalLBDoesExists(host string, uri string, htt
 		log.Printf("Error in ModifyPool %s: %v", host, err)
 	}
 
-	err = c.provider.CreateMonitor(host, "80", uri, httpMethod, 5, 16)
+	err = c.provider.CreateMonitor(host, "80", uri, httpMethod, 3, 10)
 	if err != nil {
 		log.Printf("Error in CreateMonitor %s: %v", host, err)
 	}
-	err = c.provider.CreateMonitor(host, "443", uri, httpMethod, 5, 16)
+	err = c.provider.CreateMonitor(host, "443", uri, httpMethod, 3, 10)
 	if err != nil {
 		log.Printf("Error in CreateMonitor %s: %v", host, err)
 	}
@@ -225,11 +225,11 @@ func (c *RouteController) updateRoute(old interface{}, obj interface{}) {
 				}
 			}
 			if healthCheckPathold != healthCheckPath || healthCheckMethodold != healthCheckMethod {
-				err := c.provider.ModifyMonitor(host, "80", healthCheckPath, healthCheckMethod, 5, 16)
+				err := c.provider.ModifyMonitor(host, "80", healthCheckPath, healthCheckMethod, 3, 10)
 				if err != nil {
 					log.Printf("Error in ModifyMonitor %s: %v", host, err)
 				}
-				err = c.provider.ModifyMonitor(host, "443", healthCheckPath, healthCheckMethod, 5, 16)
+				err = c.provider.ModifyMonitor(host, "443", healthCheckPath, healthCheckMethod, 3, 10)
 				if err != nil {
 					log.Printf("Error in ModifyMonitor %s: %v", host, err)
 				}
