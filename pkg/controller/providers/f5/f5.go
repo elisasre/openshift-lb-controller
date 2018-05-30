@@ -297,7 +297,11 @@ func (f5 *ProviderF5) PreUpdate() {
 	}
 	device, err := f5.session.GetCurrentDevice()
 	if err != nil {
-		log.Printf("error in PreUpdate %v", err)
+		msg := fmt.Sprintf("Error in PreUpdate %v", err)
+		if common.SentryEnabled() {
+			raven.CaptureMessage(msg, map[string]string{"stage": "preupdate"})
+		}
+		log.Printf(msg)
 		return
 	}
 	if device.FailoverState == "standby" {
@@ -319,7 +323,11 @@ func (f5 *ProviderF5) PostUpdate() {
 	}
 	err := f5.session.ConfigSyncToGroup(f5.groupname)
 	if err != nil {
-		log.Printf("error in PostUpdate %v", err)
+		msg := fmt.Sprintf("Error in PostUpdate %v", err)
+		if common.SentryEnabled() {
+			raven.CaptureMessage(msg, map[string]string{"stage": "postupdate"})
+		}
+		log.Printf(msg)
 	}
 }
 
