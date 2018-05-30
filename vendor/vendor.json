@@ -3,6 +3,12 @@
 	"ignore": "",
 	"package": [
 		{
+			"checksumSHA1": "6X8jglAmZWFxbZqPwOjB9mkJsyU=",
+			"path": "github.com/certifi/gocertifi",
+			"revision": "a61bf5eafa3aee233ec8043e9da052447e5463dd",
+			"revisionTime": "2016-09-26T11:54:48Z"
+		},
+		{
 			"checksumSHA1": "3KhDEC5MM0iyN+FsLfxpnvFVeuY=",
 			"path": "github.com/davecgh/go-spew/spew",
 			"revision": "8991bc29aa16c548c550c7ff78260e27b9ab7c73",
@@ -13,6 +19,12 @@
 			"path": "github.com/davecgh/go-spew/spew/testdata",
 			"revision": "8991bc29aa16c548c550c7ff78260e27b9ab7c73",
 			"revisionTime": "2018-02-21T22:46:20Z"
+		},
+		{
+			"checksumSHA1": "vfbTUiSHqmkdZLoIA69U+G3CzdE=",
+			"path": "github.com/getsentry/raven-go",
+			"revision": "3f7439d3e74d88e21d196ba20eb61a5a958bc118",
+			"revisionTime": "2016-11-15T13:54:11Z"
 		},
 		{
 			"checksumSHA1": "8bCg/2RmH1QF5+j78OtiFXUaJ/o=",
@@ -1267,5 +1279,5 @@
 			"revisionTime": "2018-03-05T11:11:23Z"
 		}
 	],
-	"rootPath": "github.devcloud.elisa.fi/devops/route-operator"
+	"rootPath": "github.com/ElisaOyj/openshift-lb-controller"
 }

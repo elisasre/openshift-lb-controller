@@ -15,7 +15,10 @@ import (
 	"sync"
 	"syscall"
 
+	"github.com/ElisaOyj/openshift-lb-controller/pkg/common"
 	"github.com/ElisaOyj/openshift-lb-controller/pkg/controller"
+
+	"github.com/getsentry/raven-go"
 	"k8s.io/client-go/kubernetes"
 	restclient "k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
@@ -23,6 +26,14 @@ import (
 	// lb providers
 	_ "github.com/ElisaOyj/openshift-lb-controller/pkg/controller/providers/f5"
 )
+
+func init() {
+	sentry := os.Getenv("SENTRY_DSN")
+	if len(sentry) != 0 {
+		raven.SetDSN(sentry)
+		log.Printf("Using sentry dsn %s", sentry)
+	}
+}
 
 func main() {
 	log.SetOutput(os.Stdout)
@@ -39,6 +50,9 @@ func main() {
 	clientset, config, err := newClientSet(*runOutsideCluster)
 
 	if err != nil {
+		if common.SentryEnabled() {
+			raven.CaptureErrorAndWait(err, nil)
+		}
 		panic(err.Error())
 	}
 

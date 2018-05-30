@@ -7,12 +7,15 @@ SPDX-License-Identifier: Apache-2.0
 package f5
 
 import (
+	"errors"
 	"log"
 	"os"
 	"strconv"
 	"strings"
 
+	"github.com/ElisaOyj/openshift-lb-controller/pkg/common"
 	"github.com/ElisaOyj/openshift-lb-controller/pkg/controller"
+	"github.com/getsentry/raven-go"
 	v1 "github.com/openshift/api/route/v1"
 	bigip "github.com/scottdware/go-bigip"
 )
@@ -55,7 +58,11 @@ func alreadyExist(err error) bool {
 func (f5 *ProviderF5) Initialize() {
 	address := os.Getenv("F5_ADDR")
 	if len(address) == 0 {
-		panic("F5_ADDR environment variable needed")
+		err := errors.New("F5_ADDR environment variable needed")
+		if common.SentryEnabled() {
+			raven.CaptureErrorAndWait(err, nil)
+		}
+		panic(err)
 	}
 
 	groupname := os.Getenv("F5_CLUSTERGROUP")
@@ -66,18 +73,30 @@ func (f5 *ProviderF5) Initialize() {
 
 	username := os.Getenv("F5_USER")
 	if len(username) == 0 {
-		panic("F5_USER environment variable needed")
+		err := errors.New("F5_USER environment variable needed")
+		if common.SentryEnabled() {
+			raven.CaptureErrorAndWait(err, nil)
+		}
+		panic(err)
 	}
 	password := os.Getenv("F5_PASSWORD")
 	if len(password) == 0 {
-		panic("F5_PASSWORD environment variable needed")
+		err := errors.New("F5_PASSWORD environment variable needed")
+		if common.SentryEnabled() {
+			raven.CaptureErrorAndWait(err, nil)
+		}
+		panic(err)
 	}
 	f5.username = username
 	f5.password = password
 	f5.session = bigip.NewSession(f5.addresses[0], f5.username, f5.password, nil)
 	number := os.Getenv("CLUSTER_PRIO")
 	if len(number) == 0 {
-		panic("CLUSTER_PRIO environment variable needed")
+		err := errors.New("CLUSTER_PRIO environment variable needed")
+		if common.SentryEnabled() {
+			raven.CaptureErrorAndWait(err, nil)
+		}
+		panic(err)
 	}
 	i, err := strconv.Atoi(number)
 	if err != nil {
