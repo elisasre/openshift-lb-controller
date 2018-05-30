@@ -3,6 +3,12 @@
 	"ignore": "",
 	"package": [
 		{
+			"checksumSHA1": "6X8jglAmZWFxbZqPwOjB9mkJsyU=",
+			"path": "github.com/certifi/gocertifi",
+			"revision": "a61bf5eafa3aee233ec8043e9da052447e5463dd",
+			"revisionTime": "2016-09-26T11:54:48Z"
+		},
+		{
 			"checksumSHA1": "3KhDEC5MM0iyN+FsLfxpnvFVeuY=",
 			"path": "github.com/davecgh/go-spew/spew",
 			"revision": "8991bc29aa16c548c550c7ff78260e27b9ab7c73",

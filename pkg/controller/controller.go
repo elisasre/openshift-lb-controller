@@ -16,6 +16,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/ElisaOyj/openshift-lb-controller/pkg/common"
+	"github.com/getsentry/raven-go"
 	v1r "github.com/openshift/api/route/v1"
 	routev1 "github.com/openshift/client-go/route/clientset/versioned/typed/route/v1"
 	"k8s.io/api/core/v1"
@@ -25,8 +27,6 @@ import (
 	"k8s.io/client-go/kubernetes"
 	restclient "k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/cache"
-	"github.com/getsentry/raven-go"
-	"github.com/ElisaOyj/openshift-lb-controller/pkg/common"
 )
 
 const (

@@ -15,13 +15,13 @@ import (
 	"sync"
 	"syscall"
 
-	"github.com/ElisaOyj/openshift-lb-controller/pkg/controller"
 	"github.com/ElisaOyj/openshift-lb-controller/pkg/common"
+	"github.com/ElisaOyj/openshift-lb-controller/pkg/controller"
 
+	"github.com/getsentry/raven-go"
 	"k8s.io/client-go/kubernetes"
 	restclient "k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
-	"github.com/getsentry/raven-go"
 
 	// lb providers
 	_ "github.com/ElisaOyj/openshift-lb-controller/pkg/controller/providers/f5"

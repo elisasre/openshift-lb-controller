@@ -13,11 +13,11 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/ElisaOyj/openshift-lb-controller/pkg/common"
 	"github.com/ElisaOyj/openshift-lb-controller/pkg/controller"
+	"github.com/getsentry/raven-go"
 	v1 "github.com/openshift/api/route/v1"
 	bigip "github.com/scottdware/go-bigip"
-	"github.com/getsentry/raven-go"
-	"github.com/ElisaOyj/openshift-lb-controller/pkg/common"
 )
 
 const providerName = "f5"
