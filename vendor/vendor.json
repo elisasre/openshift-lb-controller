@@ -15,6 +15,12 @@
 			"revisionTime": "2018-02-21T22:46:20Z"
 		},
 		{
+			"checksumSHA1": "vfbTUiSHqmkdZLoIA69U+G3CzdE=",
+			"path": "github.com/getsentry/raven-go",
+			"revision": "3f7439d3e74d88e21d196ba20eb61a5a958bc118",
+			"revisionTime": "2016-11-15T13:54:11Z"
+		},
+		{
 			"checksumSHA1": "8bCg/2RmH1QF5+j78OtiFXUaJ/o=",
 			"path": "github.com/ghodss/yaml",
 			"revision": "0ca9ea5df5451ffdf184b4428c902747c2c11cd7",
@@ -1267,5 +1273,5 @@
 			"revisionTime": "2018-03-05T11:11:23Z"
 		}
 	],
-	"rootPath": "github.devcloud.elisa.fi/devops/route-operator"
+	"rootPath": "github.com/ElisaOyj/openshift-lb-controller"
 }

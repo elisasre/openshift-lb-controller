@@ -7,6 +7,8 @@ SPDX-License-Identifier: Apache-2.0
 package controller
 
 import (
+	"errors"
+	"fmt"
 	"log"
 	"os"
 	"strconv"
@@ -23,6 +25,8 @@ import (
 	"k8s.io/client-go/kubernetes"
 	restclient "k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/cache"
+	"github.com/getsentry/raven-go"
+	"github.com/ElisaOyj/openshift-lb-controller/pkg/common"
 )
 
 const (
@@ -90,17 +94,29 @@ func NewRouteController(kclient *kubernetes.Clientset, config *restclient.Config
 
 	host := os.Getenv("SUFFIXHOST")
 	if len(host) == 0 {
-		panic("SUFFIXHOST environment variable needed")
+		err := errors.New("SUFFIXHOST environment variable needed")
+		if common.SentryEnabled() {
+			raven.CaptureErrorAndWait(err, nil)
+		}
+		panic(err)
 	}
 	routeWatcher.hosttowatch = host
 	clustername := os.Getenv("CLUSTERALIAS")
 	if len(clustername) == 0 {
-		panic("CLUSTERALIAS environment variable needed")
+		err := errors.New("CLUSTERALIAS environment variable needed")
+		if common.SentryEnabled() {
+			raven.CaptureErrorAndWait(err, nil)
+		}
+		panic(err)
 	}
 	routeWatcher.clusteralias = clustername
 	provider := routeWatcher.InitProvider()
 	if provider == nil {
-		panic("Could not find working LB provider")
+		err := errors.New("Could not find working LB provider")
+		if common.SentryEnabled() {
+			raven.CaptureErrorAndWait(err, nil)
+		}
+		panic(err)
 	}
 	routeWatcher.provider = provider
 	routeWatcher.provider.Initialize()
@@ -127,47 +143,87 @@ func (c *RouteController) checkExternalLBDoesExists(host string, uri string, htt
 	c.provider.PreUpdate()
 	err := c.provider.CreatePool(host, "80")
 	if err != nil {
-		log.Printf("Error in CreatePool %s: %v", host, err)
+		msg := fmt.Sprintf("Error in CreatePool %s: %v", host, err)
+		if common.SentryEnabled() {
+			raven.CaptureMessage(msg, map[string]string{"host": host})
+		}
+		log.Printf(msg)
 	}
 	err = c.provider.CreatePool(host, "443")
 	if err != nil {
-		log.Printf("Error in CreatePool %s: %v", host, err)
+		msg := fmt.Sprintf("Error in CreatePool %s: %v", host, err)
+		if common.SentryEnabled() {
+			raven.CaptureMessage(msg, map[string]string{"host": host})
+		}
+		log.Printf(msg)
 	}
 
 	err = c.provider.AddPoolMember(c.clusteralias, host, "80")
 	if err != nil {
-		log.Printf("Error in AddPoolMember %s: %v", host, err)
+		msg := fmt.Sprintf("Error in AddPoolMember %s: %v", host, err)
+		if common.SentryEnabled() {
+			raven.CaptureMessage(msg, map[string]string{"host": host})
+		}
+		log.Printf(msg)
 	}
 	err = c.provider.AddPoolMember(c.clusteralias, host, "443")
 	if err != nil {
-		log.Printf("Error in AddPoolMember %s: %v", host, err)
+		msg := fmt.Sprintf("Error in AddPoolMember %s: %v", host, err)
+		if common.SentryEnabled() {
+			raven.CaptureMessage(msg, map[string]string{"host": host})
+		}
+		log.Printf(msg)
 	}
 
 	err = c.provider.ModifyPool(host, "80", loadBalancingMethod, pga)
 	if err != nil {
-		log.Printf("Error in ModifyPool %s: %v", host, err)
+		msg := fmt.Sprintf("Error in ModifyPool %s: %v", host, err)
+		if common.SentryEnabled() {
+			raven.CaptureMessage(msg, map[string]string{"host": host})
+		}
+		log.Printf(msg)
 	}
 	err = c.provider.ModifyPool(host, "443", loadBalancingMethod, pga)
 	if err != nil {
-		log.Printf("Error in ModifyPool %s: %v", host, err)
+		msg := fmt.Sprintf("Error in ModifyPool %s: %v", host, err)
+		if common.SentryEnabled() {
+			raven.CaptureMessage(msg, map[string]string{"host": host})
+		}
+		log.Printf(msg)
 	}
 
 	err = c.provider.CreateMonitor(host, "80", uri, httpMethod, 3, 10)
 	if err != nil {
-		log.Printf("Error in CreateMonitor %s: %v", host, err)
+		msg := fmt.Sprintf("Error in CreateMonitor %s: %v", host, err)
+		if common.SentryEnabled() {
+			raven.CaptureMessage(msg, map[string]string{"host": host})
+		}
+		log.Printf(msg)
 	}
 	err = c.provider.CreateMonitor(host, "443", uri, httpMethod, 3, 10)
 	if err != nil {
-		log.Printf("Error in CreateMonitor %s: %v", host, err)
+		msg := fmt.Sprintf("Error in CreateMonitor %s: %v", host, err)
+		if common.SentryEnabled() {
+			raven.CaptureMessage(msg, map[string]string{"host": host})
+		}
+		log.Printf(msg)
 	}
 
 	err = c.provider.AddMonitorToPool(host, "80")
 	if err != nil {
-		log.Printf("Error in AddMonitorToPool %s: %v", host, err)
+		msg := fmt.Sprintf("Error in AddMonitorToPool %s: %v", host, err)
+		if common.SentryEnabled() {
+			raven.CaptureMessage(msg, map[string]string{"host": host})
+		}
+		log.Printf(msg)
 	}
 	err = c.provider.AddMonitorToPool(host, "443")
 	if err != nil {
-		log.Printf("Error in AddMonitorToPool %s: %v", host, err)
+		msg := fmt.Sprintf("Error in AddMonitorToPool %s: %v", host, err)
+		if common.SentryEnabled() {
+			raven.CaptureMessage(msg, map[string]string{"host": host})
+		}
+		log.Printf(msg)
 	}
 
 	c.provider.PostUpdate()
@@ -178,11 +234,19 @@ func (c *RouteController) checkExternalLBDoesNotExists(host string) {
 	c.provider.PreUpdate()
 	err := c.provider.DeletePoolMember(c.clusteralias, host, "80")
 	if err != nil {
-		log.Printf("Error in DeletePoolMember %s: %v", host, err)
+		msg := fmt.Sprintf("Error in DeletePoolMember %s: %v", host, err)
+		if common.SentryEnabled() {
+			raven.CaptureMessage(msg, map[string]string{"host": host})
+		}
+		log.Printf(msg)
 	}
 	err = c.provider.DeletePoolMember(c.clusteralias, host, "443")
 	if err != nil {
-		log.Printf("Error in DeletePoolMember %s: %v", host, err)
+		msg := fmt.Sprintf("Error in DeletePoolMember %s: %v", host, err)
+		if common.SentryEnabled() {
+			raven.CaptureMessage(msg, map[string]string{"host": host})
+		}
+		log.Printf(msg)
 	}
 
 	// if 0 members left in pool, cleanup monitor and delete pool
@@ -217,21 +281,37 @@ func (c *RouteController) updateRoute(old interface{}, obj interface{}) {
 			if loadBalancingMethodold != loadBalancingMethod || pgaold != pga {
 				err := c.provider.ModifyPool(host, "80", loadBalancingMethod, pga)
 				if err != nil {
-					log.Printf("Error in ModifyPool %s: %v", host, err)
+					msg := fmt.Sprintf("Error in ModifyPool %s: %v", host, err)
+					if common.SentryEnabled() {
+						raven.CaptureMessage(msg, map[string]string{"host": host})
+					}
+					log.Printf(msg)
 				}
 				err = c.provider.ModifyPool(host, "443", loadBalancingMethod, pga)
 				if err != nil {
-					log.Printf("Error in ModifyPool %s: %v", host, err)
+					msg := fmt.Sprintf("Error in ModifyPool %s: %v", host, err)
+					if common.SentryEnabled() {
+						raven.CaptureMessage(msg, map[string]string{"host": host})
+					}
+					log.Printf(msg)
 				}
 			}
 			if healthCheckPathold != healthCheckPath || healthCheckMethodold != healthCheckMethod {
 				err := c.provider.ModifyMonitor(host, "80", healthCheckPath, healthCheckMethod, 3, 10)
 				if err != nil {
-					log.Printf("Error in ModifyMonitor %s: %v", host, err)
+					msg := fmt.Sprintf("Error in ModifyMonitor %s: %v", host, err)
+					if common.SentryEnabled() {
+						raven.CaptureMessage(msg, map[string]string{"host": host})
+					}
+					log.Printf(msg)
 				}
 				err = c.provider.ModifyMonitor(host, "443", healthCheckPath, healthCheckMethod, 3, 10)
 				if err != nil {
-					log.Printf("Error in ModifyMonitor %s: %v", host, err)
+					msg := fmt.Sprintf("Error in ModifyMonitor %s: %v", host, err)
+					if common.SentryEnabled() {
+						raven.CaptureMessage(msg, map[string]string{"host": host})
+					}
+					log.Printf(msg)
 				}
 			}
 		}
@@ -274,6 +354,9 @@ func overrideWithAnnotation(route *v1r.Route) (string, string, string, int) {
 	if annotationValue, ok := route.Annotations[poolPGARouteMethodAnnotation]; ok {
 		i, err := strconv.Atoi(annotationValue)
 		if err != nil {
+			if common.SentryEnabled() {
+				raven.CaptureError(err, nil)
+			}
 			log.Println(err)
 		} else {
 			pga = i
