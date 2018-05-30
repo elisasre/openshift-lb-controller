@@ -34,7 +34,8 @@ const (
 	healthCheckMethodAnnotation  = "route.elisa.fi/method"
 	poolRouteMethodAnnotation    = "route.elisa.fi/lbmethod"
 	poolPGARouteMethodAnnotation = "route.elisa.fi/poolpga"
-	customHostAnnotation         = "route.elisa.fi/lbenabled"
+	// CustomHostAnnotation is annotation which enables lb for custom route hostname
+	CustomHostAnnotation = "route.elisa.fi/lbenabled"
 )
 
 // RouteController watches the kubernetes api for changes to routes
@@ -134,7 +135,7 @@ func (c *RouteController) cleanUp() {
 		return
 	}
 	poolsToBeRemoved := c.provider.CheckPools(routes.Items, c.hosttowatch, c.clusteralias)
-	for _, host := range poolsToBeRemoved {
+	for host := range poolsToBeRemoved {
 		c.checkExternalLBDoesNotExists(host)
 	}
 }
@@ -261,8 +262,8 @@ func (c *RouteController) updateRoute(old interface{}, obj interface{}) {
 	route := obj.(*v1r.Route)
 	routeold := old.(*v1r.Route)
 
-	_, found := route.Annotations[customHostAnnotation]
-	_, foundold := routeold.Annotations[customHostAnnotation]
+	_, found := route.Annotations[CustomHostAnnotation]
+	_, foundold := routeold.Annotations[CustomHostAnnotation]
 
 	if len(routeold.Status.Ingress) > 0 && len(route.Status.Ingress) > 0 {
 		// if old did not have and now it has
@@ -320,7 +321,7 @@ func (c *RouteController) updateRoute(old interface{}, obj interface{}) {
 
 func (c *RouteController) deleteRoute(obj interface{}) {
 	route := obj.(*v1r.Route)
-	_, found := route.Annotations[customHostAnnotation]
+	_, found := route.Annotations[CustomHostAnnotation]
 	// has suffix what we are interested, skip others
 	if strings.HasSuffix(route.Spec.Host, c.hosttowatch) || found {
 		c.checkExternalLBDoesNotExists(route.Spec.Host)
@@ -328,7 +329,7 @@ func (c *RouteController) deleteRoute(obj interface{}) {
 }
 func (c *RouteController) createRoute(obj interface{}) {
 	route := obj.(*v1r.Route)
-	_, found := route.Annotations[customHostAnnotation]
+	_, found := route.Annotations[CustomHostAnnotation]
 	// has suffix what we are interested, skip others
 	if strings.HasSuffix(route.Spec.Host, c.hosttowatch) || found {
 		// read healthcheck path

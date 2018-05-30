@@ -264,8 +264,8 @@ func (f5 *ProviderF5) poolMemberExist(pool bigip.Pool, membername string) bool {
 }
 
 // CheckPools compares current load balancer setup and what routes we have. It returns list of pools which should be removed
-func (f5 *ProviderF5) CheckPools(routes []v1.Route, hosttowatch string, membername string) []string {
-	hosts := []string{}
+func (f5 *ProviderF5) CheckPools(routes []v1.Route, hosttowatch string, membername string) map[string]bool {
+	hosts := map[string]bool{}
 	pools, err := f5.session.Pools()
 	if err != nil {
 		log.Printf("error fetching pool %v", err)
@@ -276,14 +276,14 @@ func (f5 *ProviderF5) CheckPools(routes []v1.Route, hosttowatch string, memberna
 			remove := true
 			splittedpool := strings.Split(pool.Name, "_")[0]
 			for _, route := range routes {
-				splittedroute := strings.Split(route.Spec.Host, ".")[0]
-				if strings.HasSuffix(route.Spec.Host, hosttowatch) && splittedroute == splittedpool {
+				_, found := route.Annotations[controller.CustomHostAnnotation]
+				if (strings.HasSuffix(route.Spec.Host, hosttowatch) || found) && route.Spec.Host == splittedpool {
 					remove = false
 					break
 				}
 			}
 			if remove {
-				hosts = append(hosts, splittedpool+".")
+				hosts[splittedpool] = true
 			}
 		}
 	}

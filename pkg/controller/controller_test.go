@@ -45,7 +45,7 @@ func TestCreate(t *testing.T) {
 	obj = &v1.Route{
 		ObjectMeta: metav1.ObjectMeta{
 			Annotations: map[string]string{
-				customHostAnnotation: "enabled",
+				CustomHostAnnotation: "enabled",
 			},
 		},
 		Spec: v1.RouteSpec{
@@ -118,7 +118,7 @@ func TestDelete(t *testing.T) {
 	obj = &v1.Route{
 		ObjectMeta: metav1.ObjectMeta{
 			Annotations: map[string]string{
-				customHostAnnotation: "enabled",
+				CustomHostAnnotation: "enabled",
 			},
 		},
 		Spec: v1.RouteSpec{
@@ -318,7 +318,7 @@ func TestUpdate(t *testing.T) {
 	obj = &v1.Route{
 		ObjectMeta: metav1.ObjectMeta{
 			Annotations: map[string]string{
-				customHostAnnotation: "enabled",
+				CustomHostAnnotation: "enabled",
 			},
 		},
 		Spec: v1.RouteSpec{
@@ -376,7 +376,7 @@ func TestUpdate(t *testing.T) {
 	obj2 = &v1.Route{
 		ObjectMeta: metav1.ObjectMeta{
 			Annotations: map[string]string{
-				customHostAnnotation: "enabled",
+				CustomHostAnnotation: "enabled",
 			},
 		},
 		Spec: v1.RouteSpec{
@@ -554,7 +554,7 @@ func TestUpdateAnnotation(t *testing.T) {
 		ObjectMeta: metav1.ObjectMeta{
 			Annotations: map[string]string{
 				poolRouteMethodAnnotation: "test",
-				customHostAnnotation:      "enabled",
+				CustomHostAnnotation:      "enabled",
 			},
 		},
 		Spec: v1.RouteSpec{
@@ -573,7 +573,7 @@ func TestUpdateAnnotation(t *testing.T) {
 	obj2 = &v1.Route{
 		ObjectMeta: metav1.ObjectMeta{
 			Annotations: map[string]string{
-				customHostAnnotation: "enabled",
+				CustomHostAnnotation: "enabled",
 			},
 		},
 		Spec: v1.RouteSpec{

@@ -87,7 +87,7 @@ func (f *Fakeprovider) CheckAndClean(name string, port string) {
 }
 
 // CheckPools compares current load balancer setup and what routes we have. It returns list of pools which should be removed
-func (f *Fakeprovider) CheckPools(routes []v1.Route, hosttowatch string, membername string) []string {
+func (f *Fakeprovider) CheckPools(routes []v1.Route, hosttowatch string, membername string) map[string]bool {
 	f.addCall("CheckPools")
 	return nil
 }

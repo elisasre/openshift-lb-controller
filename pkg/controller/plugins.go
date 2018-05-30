@@ -40,7 +40,7 @@ type ProviderInterface interface {
 	// executed after something is updated. Can be used for instance to configuration sync
 	PostUpdate()
 	// returns hosts which should be removed
-	CheckPools(routes []v1.Route, hosttowatch string, membername string) []string
+	CheckPools(routes []v1.Route, hosttowatch string, membername string) map[string]bool
 	// testing purposes
 	Calls() []string
 	CleanCalls()
