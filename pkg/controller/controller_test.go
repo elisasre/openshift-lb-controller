@@ -647,4 +647,50 @@ func TestUpdateAnnotation(t *testing.T) {
 		t.Errorf("excepted to update pga")
 	}
 
+	fakeRouteController.provider.CleanCalls()
+
+	obj = &v1.Route{
+		ObjectMeta: metav1.ObjectMeta{
+			Annotations: map[string]string{
+				maintenanceAnnotation: "",
+			},
+		},
+		Spec: v1.RouteSpec{
+			To:  v1.RouteTargetReference{Name: "other"},
+			TLS: &v1.TLSConfig{},
+		},
+		Status: v1.RouteStatus{
+			Ingress: []v1.RouteIngress{
+				{
+					Host: "foo.test.com",
+				},
+			},
+		},
+	}
+
+	obj2 = &v1.Route{
+		Spec: v1.RouteSpec{
+			To:  v1.RouteTargetReference{Name: "other"},
+			TLS: &v1.TLSConfig{},
+		},
+		Status: v1.RouteStatus{
+			Ingress: []v1.RouteIngress{
+				{
+					Host: "foo.test.com",
+				},
+			},
+		},
+	}
+
+	fakeRouteController.updateRoute(obj, obj2)
+
+	if len(fakeRouteController.provider.Calls()) == 0 {
+		t.Errorf("excepted to default update maintenance")
+	}
+	fakeRouteController.provider.CleanCalls()
+
+	fakeRouteController.updateRoute(obj2, obj)
+	if len(fakeRouteController.provider.Calls()) == 0 {
+		t.Errorf("excepted to update maintenance")
+	}
 }
