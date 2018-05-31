@@ -281,7 +281,11 @@ func (c *RouteController) updateRoute(old interface{}, obj interface{}) {
 			healthCheckPathold, healthCheckMethodold, loadBalancingMethodold, pgaold, maintenanceold := overrideWithAnnotation(routeold)
 			healthCheckPath, healthCheckMethod, loadBalancingMethod, pga, maintenance := overrideWithAnnotation(route)
 			host := route.Status.Ingress[0].Host
-			c.provider.PreUpdate()
+			update := false
+			if loadBalancingMethodold != loadBalancingMethod || pgaold != pga || maintenanceold != maintenance || healthCheckPathold != healthCheckPath || healthCheckMethodold != healthCheckMethod {
+				c.provider.PreUpdate()
+				update = true
+			}
 			if loadBalancingMethodold != loadBalancingMethod || pgaold != pga || maintenanceold != maintenance {
 				err := c.provider.ModifyPool(host, "80", loadBalancingMethod, pga, maintenance)
 				if err != nil {
@@ -318,7 +322,9 @@ func (c *RouteController) updateRoute(old interface{}, obj interface{}) {
 					log.Printf(msg)
 				}
 			}
-			c.provider.PostUpdate()
+			if update {
+				c.provider.PostUpdate()
+			}
 		}
 	}
 }
