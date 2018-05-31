@@ -24,7 +24,7 @@ type ProviderInterface interface {
 	// adds new member to pool
 	AddPoolMember(membername string, name string, port string) error
 	// modifies loadbalancer pool
-	ModifyPool(name string, port string, loadBalancingMethod string, pga int) error
+	ModifyPool(name string, port string, loadBalancingMethod string, pga int, maintenance bool) error
 	// creates new monitor
 	CreateMonitor(host string, port string, uri string, httpMethod string, interval int, timeout int) error
 	// modifies monitor

@@ -130,7 +130,7 @@ func (f5 *ProviderF5) AddPoolMember(membername string, name string, port string)
 	return nil
 }
 
-func (f5 *ProviderF5) modifyMember(name string, port string) {
+func (f5 *ProviderF5) modifyMember(name string, port string, maintenance bool) {
 	// we need use this because getpoolmember is not working correctly
 	members, err := f5.session.PoolMembers(name + "_" + port)
 	if err != nil {
@@ -143,6 +143,13 @@ func (f5 *ProviderF5) modifyMember(name string, port string) {
 				FullPath:      item.FullPath,
 				PriorityGroup: f5.ClusterPRIOnumber,
 			}
+			if maintenance {
+				config.Session = "user-disabled"
+				log.Printf("setting poolmember %s in pool %s_%s to disabled", f5.Clusteralias, name, port)
+			} else {
+				config.Session = "user-enabled"
+				log.Printf("setting poolmember %s in pool %s_%s to enabled", f5.Clusteralias, name, port)
+			}
 			err = f5.session.PatchPoolMember(name+"_"+port, config)
 			if err != nil {
 				log.Printf("error in modifyMember %v", err)
@@ -153,7 +160,7 @@ func (f5 *ProviderF5) modifyMember(name string, port string) {
 }
 
 // ModifyPool modifies loadbalancer pool
-func (f5 *ProviderF5) ModifyPool(name string, port string, loadBalancingMethod string, pga int) error {
+func (f5 *ProviderF5) ModifyPool(name string, port string, loadBalancingMethod string, pga int, maintenance bool) error {
 	pool, err := f5.session.GetPool(name + "_" + port)
 	if err != nil {
 		return err
@@ -166,7 +173,7 @@ func (f5 *ProviderF5) ModifyPool(name string, port string, loadBalancingMethod s
 	pool.LoadBalancingMode = targetmode
 	log.Printf("changing pool %s pga to %d", name+"_"+port, pga)
 	pool.MinActiveMembers = pga
-	f5.modifyMember(name, port)
+	f5.modifyMember(name, port, maintenance)
 	err = f5.session.ModifyPool(name+"_"+port, pool)
 	if err != nil {
 		return err
