@@ -70,8 +70,6 @@ spec:
           value: "F5"
         - name: SUFFIXHOST
           value: "dc.elisa.fi"
-        - name: CLUSTER_PRIO
-          value: '1'
         - name: CLUSTERALIAS
           value: "dc1"
         - name: F5_ADDR
