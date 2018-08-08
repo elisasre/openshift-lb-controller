@@ -52,7 +52,7 @@ func (f *Fakeprovider) CreatePool(name string, port string) error {
 }
 
 // ModifyPool modifies loadbalancer pool
-func (f *Fakeprovider) ModifyPool(name string, port string, loadBalancingMethod string, pga int, maintenance bool) error {
+func (f *Fakeprovider) ModifyPool(name string, port string, loadBalancingMethod string, pga int, maintenance bool, prio int) error {
 	f.addCall("ModifyPool")
 	return nil
 }

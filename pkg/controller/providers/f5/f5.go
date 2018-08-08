@@ -11,7 +11,6 @@ import (
 	"fmt"
 	"log"
 	"os"
-	"strconv"
 	"strings"
 
 	"github.com/ElisaOyj/openshift-lb-controller/pkg/common"
@@ -25,14 +24,13 @@ const providerName = "f5"
 
 // ProviderF5 is an implementation of Interface for F5.
 type ProviderF5 struct {
-	session           *bigip.BigIP
-	Clusteralias      string
-	ClusterPRIOnumber int
-	username          string
-	password          string
-	addresses         []string
-	currentaddr       int
-	groupname         string
+	session      *bigip.BigIP
+	Clusteralias string
+	username     string
+	password     string
+	addresses    []string
+	currentaddr  int
+	groupname    string
 }
 
 func init() {
@@ -41,9 +39,8 @@ func init() {
 
 func newProviderF5() *ProviderF5 {
 	f5 := ProviderF5{
-		ClusterPRIOnumber: 0,
-		currentaddr:       0,
-		groupname:         "cluster",
+		currentaddr: 0,
+		groupname:   "cluster",
 	}
 	return &f5
 }
@@ -91,20 +88,6 @@ func (f5 *ProviderF5) Initialize() {
 	f5.username = username
 	f5.password = password
 	f5.session = bigip.NewSession(f5.addresses[0], f5.username, f5.password, nil)
-	number := os.Getenv("CLUSTER_PRIO")
-	if len(number) == 0 {
-		err := errors.New("CLUSTER_PRIO environment variable needed")
-		if common.SentryEnabled() {
-			raven.CaptureErrorAndWait(err, nil)
-		}
-		panic(err)
-	}
-	i, err := strconv.Atoi(number)
-	if err != nil {
-		log.Println(err)
-	} else {
-		f5.ClusterPRIOnumber = i
-	}
 }
 
 // CreatePool creates new loadbalancer pool
@@ -130,7 +113,7 @@ func (f5 *ProviderF5) AddPoolMember(membername string, name string, port string)
 	return nil
 }
 
-func (f5 *ProviderF5) modifyMember(name string, port string, maintenance bool) {
+func (f5 *ProviderF5) modifyMember(name string, port string, maintenance bool, prio int) {
 	// we need use this because getpoolmember is not working correctly
 	members, err := f5.session.PoolMembers(name + "_" + port)
 	if err != nil {
@@ -141,7 +124,7 @@ func (f5 *ProviderF5) modifyMember(name string, port string, maintenance bool) {
 		if item.Name == f5.Clusteralias+":"+port {
 			config := &bigip.PoolMember{
 				FullPath:      item.FullPath,
-				PriorityGroup: f5.ClusterPRIOnumber,
+				PriorityGroup: prio,
 			}
 			if maintenance {
 				config.Session = "user-disabled"
@@ -160,7 +143,7 @@ func (f5 *ProviderF5) modifyMember(name string, port string, maintenance bool) {
 }
 
 // ModifyPool modifies loadbalancer pool
-func (f5 *ProviderF5) ModifyPool(name string, port string, loadBalancingMethod string, pga int, maintenance bool) error {
+func (f5 *ProviderF5) ModifyPool(name string, port string, loadBalancingMethod string, pga int, maintenance bool, prio int) error {
 	pool, err := f5.session.GetPool(name + "_" + port)
 	if err != nil {
 		return err
@@ -173,7 +156,7 @@ func (f5 *ProviderF5) ModifyPool(name string, port string, loadBalancingMethod s
 	pool.LoadBalancingMode = targetmode
 	log.Printf("changing pool %s pga to %d", name+"_"+port, pga)
 	pool.MinActiveMembers = pga
-	f5.modifyMember(name, port, maintenance)
+	f5.modifyMember(name, port, maintenance, prio)
 	err = f5.session.ModifyPool(name+"_"+port, pool)
 	if err != nil {
 		return err
