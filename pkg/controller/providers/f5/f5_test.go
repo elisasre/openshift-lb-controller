@@ -61,7 +61,7 @@ func TestCreate(t *testing.T) {
 	if err != nil {
 		t.Errorf("%v", err)
 	}
-	
+
 	newf5.CheckAndClean("test", "80")
 
 	pools, err = newf5.getPools()
@@ -73,6 +73,5 @@ func TestCreate(t *testing.T) {
 
 	}
 	newf5.PostUpdate()
-
 
 }

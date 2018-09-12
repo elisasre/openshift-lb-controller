@@ -124,7 +124,7 @@ func (f5 *ProviderF5) AddPoolMember(membername string, name string, port string)
 
 func (f5 *ProviderF5) modifyMember(name string, port string, maintenance bool, prio int) {
 	// we need use this because getpoolmember is not working correctly
-	members, err := f5.session.PoolMembers(name + "_" + port, f5.partition)
+	members, err := f5.session.PoolMembers(name+"_"+port, f5.partition)
 	if err != nil {
 		log.Printf("error in getpoolmembers %v", err)
 		return
@@ -154,7 +154,7 @@ func (f5 *ProviderF5) modifyMember(name string, port string, maintenance bool, p
 
 // ModifyPool modifies loadbalancer pool
 func (f5 *ProviderF5) ModifyPool(name string, port string, loadBalancingMethod string, pga int, maintenance bool, prio int) error {
-	pool, err := f5.session.GetPool(name + "_" + port, f5.partition)
+	pool, err := f5.session.GetPool(name+"_"+port, f5.partition)
 	if err != nil {
 		return err
 	}
@@ -230,12 +230,12 @@ func (f5 *ProviderF5) CheckAndClean(name string, port string) {
 	if port == "443" {
 		scheme = "https"
 	}
-	members, err := f5.session.PoolMembers(name + "_" + port, f5.partition)
+	members, err := f5.session.PoolMembers(name+"_"+port, f5.partition)
 	if err != nil {
 		log.Printf("error retrieving poolmembers %s %v", name+"_"+port, err)
 	}
 	if len(members.PoolMembers) == 0 {
-		err = f5.session.DeletePool(name + "_" + port, f5.partition)
+		err = f5.session.DeletePool(name+"_"+port, f5.partition)
 		if err != nil {
 			log.Printf("error delete pool %s %v", name+"_"+port, err)
 		}
@@ -273,7 +273,7 @@ func (f5 *ProviderF5) getPools() (*bigip.Pools, error) {
 	for _, pool := range pools.Pools {
 		if len(f5.partition) == 0 && pool.Partition == "Common" {
 			filteredPools.Pools = append(filteredPools.Pools, pool)
-		} else if (pool.Partition == f5.partition) {
+		} else if pool.Partition == f5.partition {
 			filteredPools.Pools = append(filteredPools.Pools, pool)
 		}
 	}
