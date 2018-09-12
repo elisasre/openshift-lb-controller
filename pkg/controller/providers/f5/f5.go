@@ -313,7 +313,6 @@ func (f5 *ProviderF5) PreUpdate() {
 	if len(f5.addresses) == 1 {
 		return
 	}
-	// TODO: partition?
 	device, err := f5.session.GetCurrentDevice()
 	if err != nil {
 		msg := fmt.Sprintf("Error in PreUpdate %v", err)
@@ -340,7 +339,6 @@ func (f5 *ProviderF5) PostUpdate() {
 	if len(f5.addresses) == 1 {
 		return
 	}
-	// TODO: partition?
 	err := f5.session.ConfigSyncToGroup(f5.groupname)
 	if err != nil {
 		msg := fmt.Sprintf("Error in PostUpdate %v", err)
