@@ -151,6 +151,7 @@ func (s *LTMTestSuite) TestGetPolicies() {
 	p, e := s.Client.Policies()
 
 	assert.Nil(s.T(), e, "Fetching policy list should not return an error")
+	assert.Equal(s.T(), policyVersionSuffix, "?"+s.LastRequest.URL.RawQuery)
 	assert.Equal(s.T(), 2, len(p.Policies), "Wrong number of policies returned")
 	assert.Equal(s.T(), "policy1", p.Policies[0].Name)
 	assert.Equal(s.T(), "Common", p.Policies[0].Partition)
@@ -161,6 +162,7 @@ func (s *LTMTestSuite) TestGetPolicies() {
 
 func (s *LTMTestSuite) TestGetPolicy() {
 	s.ResponseFunc = func(w http.ResponseWriter, r *http.Request) {
+		assert.Equal(s.T(), policyVersionSuffix, "?"+s.LastRequest.URL.RawQuery)
 		if strings.HasSuffix(r.URL.Path, "rules") {
 			w.Write([]byte(`{
 			  "kind": "tm:ltm:policy:rules:rulescollectionstate",
@@ -256,6 +258,7 @@ func (s *LTMTestSuite) TestGetPolicy() {
 	p, err := s.Client.GetPolicy("my_policy")
 
 	assert.Nil(s.T(), err)
+	assert.Equal(s.T(), policyVersionSuffix, "?"+s.LastRequest.URL.RawQuery)
 	assert.Equal(s.T(), "my_policy", p.Name)
 	assert.Equal(s.T(), 1, len(p.Rules), "Not enough rules")
 	assert.Equal(s.T(), 1, len(p.Rules[0].Actions), "Not enough actions")
@@ -310,6 +313,7 @@ func (s *LTMTestSuite) TestCreatePolicy() {
 
 	assert.Equal(s.T(), "POST", s.LastRequest.Method)
 	assert.Equal(s.T(), fmt.Sprintf("/mgmt/tm/%s/%s", uriLtm, uriPolicy), s.LastRequest.URL.Path)
+	assert.Equal(s.T(), policyVersionSuffix, "?"+s.LastRequest.URL.RawQuery)
 	assert.JSONEq(s.T(), `{"name":"test",
 		"controls":["forwarding"],
 		"requires":["http"],
@@ -347,6 +351,7 @@ func (s *LTMTestSuite) TestUpdatePolicy() {
 
 	assert.Equal(s.T(), "PUT", s.LastRequest.Method)
 	assert.Equal(s.T(), fmt.Sprintf("/mgmt/tm/%s/%s/foo", uriLtm, uriPolicy), s.LastRequest.URL.Path)
+	assert.Equal(s.T(), policyVersionSuffix, "?"+s.LastRequest.URL.RawQuery)
 }
 
 func (s *LTMTestSuite) TestDeletePolicy() {
@@ -354,9 +359,10 @@ func (s *LTMTestSuite) TestDeletePolicy() {
 
 	assert.Equal(s.T(), "DELETE", s.LastRequest.Method)
 	assert.Equal(s.T(), fmt.Sprintf("/mgmt/tm/%s/%s/foo", uriLtm, uriPolicy), s.LastRequest.URL.Path)
+	assert.Equal(s.T(), policyVersionSuffix, "?"+s.LastRequest.URL.RawQuery)
 }
 
-func (s *LTMTestSuite) TestCreateVitualAddress() {
+func (s *LTMTestSuite) TestCreateVirtualAddress() {
 
 	s.Client.CreateVirtualAddress("test-va", &VirtualAddress{Address: "10.10.10.10", ARP: true, AutoDelete: false})
 
@@ -370,12 +376,30 @@ func (s *LTMTestSuite) TestCreateVitualAddress() {
 	"enabled":"no",
 	"floating":"disabled",
 	"icmpEcho":"disabled",
-	"inheritedTrafficGroup":"no",
-	"routeAdvertisement":"disabled"}`, s.LastRequestBody)
+	"inheritedTrafficGroup":"no"}`, s.LastRequestBody)
 
 }
 
-func (s *LTMTestSuite) TestDeleteVitualAddress() {
+func (s *LTMTestSuite) TestCreateVirtualAddressWithAdvertisement() {
+
+	s.Client.CreateVirtualAddress("test-va", &VirtualAddress{Address: "10.10.10.10", ARP: true, AutoDelete: false, RouteAdvertisement: "selective"})
+
+	assert.Equal(s.T(), "POST", s.LastRequest.Method)
+	assert.Equal(s.T(), fmt.Sprintf("/mgmt/tm/%s/%s", uriLtm, uriVirtualAddress), s.LastRequest.URL.Path)
+	assert.JSONEq(s.T(), `
+	{"name":"test-va",
+	"arp":"enabled",
+	"autoDelete":"false",
+	"address" : "10.10.10.10",
+	"enabled":"no",
+	"floating":"disabled",
+	"icmpEcho":"disabled",
+	"inheritedTrafficGroup":"no",
+  "routeAdvertisement": "selective"}`, s.LastRequestBody)
+
+}
+
+func (s *LTMTestSuite) TestDeleteVirtualAddress() {
 
 	s.Client.DeleteVirtualAddress("test-va")
 
@@ -403,6 +427,21 @@ func (s *LTMTestSuite) TestAddVirtualServer() {
 	assert.Equal(s.T(), "POST", s.LastRequest.Method)
 	assert.Equal(s.T(), fmt.Sprintf("/mgmt/tm/%s/%s", uriLtm, uriVirtual), s.LastRequest.URL.Path)
 	assert.Equal(s.T(), `{"name":"/Common/test-vs","destination":"10.10.10.10:80","pool":"/Common/test-pool","sourceAddressTranslation":{}}`, s.LastRequestBody)
+}
+
+func (s *LTMTestSuite) TestAddVirtualServerIPForward() {
+	config := &VirtualServer{
+		Name:        "/Common/test-vs",
+		Destination: "10.10.10.10:80",
+		Pool:        "/Common/test-pool",
+		IPForward:   true,
+	}
+
+	s.Client.AddVirtualServer(config)
+
+	assert.Equal(s.T(), "POST", s.LastRequest.Method)
+	assert.Equal(s.T(), fmt.Sprintf("/mgmt/tm/%s/%s", uriLtm, uriVirtual), s.LastRequest.URL.Path)
+	assert.JSONEq(s.T(), `{"name":"/Common/test-vs","destination":"10.10.10.10:80","pool":"/Common/test-pool","sourceAddressTranslation":{},"ipForward":true}`, s.LastRequestBody)
 }
 
 func (s *LTMTestSuite) TestModifyVirtualServer() {
@@ -603,7 +642,47 @@ func (s *LTMTestSuite) TestModifyPool() {
 
 	assert.Equal(s.T(), "PUT", s.LastRequest.Method)
 	assert.Equal(s.T(), fmt.Sprintf("/mgmt/tm/%s/%s/%s", uriLtm, uriPool, "~Common~test-pool"), s.LastRequest.URL.Path)
-	assert.Equal(s.T(), `{"name":"test-pool","partition":"Common","allowNat":"yes","allowSnat":"yes","loadBalancingMode":"round-robin","monitor":"/Common/http"}`, s.LastRequestBody)
+	assert.JSONEq(s.T(), `{"name":"test-pool","partition":"Common","allowNat":"yes","allowSnat":"yes","loadBalancingMode":"round-robin","monitor":"/Common/http"}`, s.LastRequestBody)
+}
+
+func (s *LTMTestSuite) TestModifyPoolWithMembers() {
+	members := []PoolMember{
+		{Name: "test-pool-member"},
+	}
+
+	config := &Pool{
+		Name:              "test-pool",
+		Partition:         "Common",
+		Monitor:           "/Common/http",
+		LoadBalancingMode: "round-robin",
+		AllowSNAT:         "yes",
+		AllowNAT:          "yes",
+		Members:           &members,
+	}
+
+	s.Client.ModifyPool("/Common/test-pool", config)
+
+	assert.Equal(s.T(), "PUT", s.LastRequest.Method)
+	assert.Equal(s.T(), fmt.Sprintf("/mgmt/tm/%s/%s/%s", uriLtm, uriPool, "~Common~test-pool"), s.LastRequest.URL.Path)
+	assert.JSONEq(s.T(), `{"name":"test-pool","partition":"Common","allowNat":"yes","allowSnat":"yes","loadBalancingMode":"round-robin","monitor":"/Common/http", "members": [{"name": "test-pool-member"}]}`, s.LastRequestBody)
+}
+
+func (s *LTMTestSuite) TestModifyPoolWithEmptyMembers() {
+	config := &Pool{
+		Name:              "test-pool",
+		Partition:         "Common",
+		Monitor:           "/Common/http",
+		LoadBalancingMode: "round-robin",
+		AllowSNAT:         "yes",
+		AllowNAT:          "yes",
+		Members:           &[]PoolMember{},
+	}
+
+	s.Client.ModifyPool("/Common/test-pool", config)
+
+	assert.Equal(s.T(), "PUT", s.LastRequest.Method)
+	assert.Equal(s.T(), fmt.Sprintf("/mgmt/tm/%s/%s/%s", uriLtm, uriPool, "~Common~test-pool"), s.LastRequest.URL.Path)
+	assert.JSONEq(s.T(), `{"name":"test-pool","partition":"Common","allowNat":"yes","allowSnat":"yes","loadBalancingMode":"round-robin","monitor":"/Common/http", "members": []}`, s.LastRequestBody)
 }
 
 func (s *LTMTestSuite) TestAddPoolMember() {
@@ -837,15 +916,48 @@ func (s *LTMTestSuite) TestAddMonitor() {
 }
 
 func (s *LTMTestSuite) TestGetMonitor() {
+	s.ResponseFunc = func(w http.ResponseWriter, r *http.Request) {
+		w.Write([]byte(`{
+			"kind": "tm:ltm:monitor:http:httpstate",
+			"name": "test-web-monitor",
+			"partition": "Common",
+			"fullPath": "/Common/test-web-monitor",
+			"generation": 0,
+			"selfLink": "https://localhost/mgmt/tm/ltm/monitor/http/~Common~test-monitor?ver=13.1.0.2",
+			"adaptive": "disabled",
+			"adaptiveDivergenceType": "relative",
+			"adaptiveDivergenceValue": 25,
+			"adaptiveLimit": 200,
+			"adaptiveSamplingTimespan": 300,
+			"defaultsFrom": "/Common/http",
+			"destination": "*:*",
+			"interval": 500,
+			"ipDscp": 0,
+			"manualResume": "disabled",
+			"recv": "HTTP 1.1 302 Found",
+			"recvDisable": "HTTP/1.1 429",
+			"reverse": "disabled",
+			"send": "GET /some/path\\r\\n",
+			"timeUntilUp": 0,
+			"timeout": 999,
+			"transparent": "disabled",
+			"upInterval": 0
+		}`))
+	}
+
 	config := &Monitor{
 		Name:          "test-web-monitor",
 		ParentMonitor: "http",
 	}
 
-	s.Client.GetMonitor(config.Name, config.ParentMonitor)
+	m, err := s.Client.GetMonitor(config.Name, config.ParentMonitor)
 
+	assert.Nil(s.T(), err)
 	assert.Equal(s.T(), "GET", s.LastRequest.Method)
 	assert.Equal(s.T(), fmt.Sprintf("/mgmt/tm/%s/%s/%s/%s", uriLtm, uriMonitor, config.ParentMonitor, config.Name), s.LastRequest.URL.Path)
+	assert.Equal(s.T(), "test-web-monitor", m.Name)
+	assert.Equal(s.T(), "HTTP 1.1 302 Found", m.ReceiveString)
+	assert.Equal(s.T(), "HTTP/1.1 429", m.ReceiveDisable)
 }
 
 func (s *LTMTestSuite) TestDeleteMonitor() {
@@ -865,28 +977,24 @@ func (s *LTMTestSuite) TestVirtualServerPolicies() {
 		w.Write([]byte(`{
 		  "kind": "tm:ltm:virtual:policies:policiescollectionstate",
 		  "selfLink": "https://localhost/mgmt/tm/ltm/virtual/foo/policies?ver=11.5.1",
-		  "policiesReference": {
-		    "link": "https://localhost/mgmt/tm/ltm/virtual/foo/policies?ver=11.5.1",
-		    "isSubcollection": true,
-		    "items": [
-		      {
-			"kind": "tm:ltm:virtual:policies:policiesstate",
-			"name": "policy1",
-			"partition": "Common",
-			"fullPath": "/Common/policy1",
-			"generation": 1,
-			"selfLink": "https://localhost/mgmt/tm/ltm/virtual/foo/policies/~Common~policy1?ver=11.5.1"
-		      },
-		      {
-			"kind": "tm:ltm:virtual:policies:policiesstate",
-			"name": "policy2",
-			"partition": "Common",
-			"fullPath": "/Common/policy2",
-			"generation": 1,
-			"selfLink": "https://localhost/mgmt/tm/ltm/virtual/foo/policies/~Common~policy2?ver=11.5.1"
-		      }
-		    ]
-		  }
+			"items": [
+				{
+					"kind": "tm:ltm:virtual:policies:policiesstate",
+					"name": "policy1",
+					"partition": "Common",
+					"fullPath": "/Common/policy1",
+					"generation": 1,
+					"selfLink": "https://localhost/mgmt/tm/ltm/virtual/foo/policies/~Common~policy1?ver=11.5.1"
+				},
+				{
+					"kind": "tm:ltm:virtual:policies:policiesstate",
+					"name": "policy2",
+					"partition": "Common",
+					"fullPath": "/Common/policy2",
+					"generation": 1,
+					"selfLink": "https://localhost/mgmt/tm/ltm/virtual/foo/policies/~Common~policy2?ver=11.5.1"
+				}
+			]
 		}`))
 	}
 
@@ -894,8 +1002,7 @@ func (s *LTMTestSuite) TestVirtualServerPolicies() {
 
 	assert.Nil(s.T(), err)
 	assert.Equal(s.T(), fmt.Sprintf("/mgmt/tm/%s/%s/foo/policies", uriLtm, uriVirtual), s.LastRequest.URL.Path)
-	assert.Equal(s.T(), "/Common/policy1", p[0])
-	assert.Equal(s.T(), "/Common/policy2", p[1])
+	assert.Equal(s.T(), []string{"/Common/policy1", "/Common/policy2"}, p)
 }
 
 func (s *LTMTestSuite) TestInternalDataGroups() {
@@ -1070,13 +1177,13 @@ func (s *LTMTestSuite) TestModifySnatPool() {
 
 	snatPool := "mySnatPool"
 
-	myModifedSnatPool := &SnatPool{Members: []string{"10.0.0.1", "10.0.0.2"}}
+	myModifedSnatPool := &SnatPool{Members: []string{"10.0.0.1", "10.0.0.2"}, Description: "my pool"}
 
 	s.Client.ModifySnatPool(snatPool, myModifedSnatPool)
 
 	assert.Equal(s.T(), "PUT", s.LastRequest.Method)
 	assert.Equal(s.T(), fmt.Sprintf("/mgmt/tm/%s/%s/%s", uriLtm, uriSnatPool, snatPool), s.LastRequest.URL.Path)
-	assert.Equal(s.T(), `{"members":["10.0.0.1","10.0.0.2"]}`, s.LastRequestBody)
+	assert.Equal(s.T(), `{"description":"my pool","members":["10.0.0.1","10.0.0.2"]}`, s.LastRequestBody)
 }
 
 func (s *LTMTestSuite) TestDeleteSnatPool() {

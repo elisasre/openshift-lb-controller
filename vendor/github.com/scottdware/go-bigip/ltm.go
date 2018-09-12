@@ -404,11 +404,12 @@ type SnatPools struct {
 // SnatPool contains information about each individual snatpool. You can use all
 // of these fields when modifying a snatpool.
 type SnatPool struct {
-	Name       string   `json:"name,omitempty"`
-	Partition  string   `json:"partition,omitempty"`
-	FullPath   string   `json:"fullPath,omitempty"`
-	Generation int      `json:"generation,omitempty"`
-	Members    []string `json:"members,omitempty"`
+	Name        string   `json:"name,omitempty"`
+	Partition   string   `json:"partition,omitempty"`
+	FullPath    string   `json:"fullPath,omitempty"`
+	Description string   `json:"description,omitempty"`
+	Generation  int      `json:"generation,omitempty"`
+	Members     []string `json:"members,omitempty"`
 }
 
 // Pools contains a list of pools on the BIG-IP system.
@@ -443,6 +444,9 @@ type Pool struct {
 	ReselectTries          int    `json:"reselectTries,omitempty"`
 	ServiceDownAction      string `json:"serviceDownAction,omitempty"`
 	SlowRampTime           int    `json:"slowRampTime,omitempty"`
+
+	// Setting this field atomically updates all members.
+	Members *[]PoolMember `json:"members,omitempty"`
 }
 
 // Pool Members contains a list of pool members within a pool on the BIG-IP system.
@@ -452,7 +456,8 @@ type PoolMembers struct {
 
 // poolMember is used only when adding members to a pool.
 type poolMember struct {
-	Name string `json:"name"`
+	Name      string `json:"name"`
+	Partition string `json:"partition,omitempty"`
 }
 
 // poolMembers is used only when modifying members on a pool.
@@ -501,6 +506,7 @@ type VirtualServer struct {
 	Description              string `json:"description,omitempty"`
 	Enabled                  bool   `json:"enabled,omitempty"`
 	GTMScore                 int    `json:"gtmScore,omitempty"`
+	IPForward                bool   `json:"ipForward,omitempty"`
 	IPProtocol               string `json:"ipProtocol,omitempty"`
 	Mask                     string `json:"mask,omitempty"`
 	Mirror                   string `json:"mirror,omitempty"`
@@ -549,7 +555,7 @@ type VirtualAddress struct {
 	ICMPEcho              bool
 	InheritedTrafficGroup bool
 	Mask                  string
-	RouteAdvertisement    bool
+	RouteAdvertisement    string
 	ServerScope           string
 	TrafficGroup          string
 	Unit                  int
@@ -569,7 +575,7 @@ type virtualAddressDTO struct {
 	ICMPEcho              string `json:"icmpEcho,omitempty" bool:"enabled"`
 	InheritedTrafficGroup string `json:"inheritedTrafficGroup,omitempty" bool:"yes"`
 	Mask                  string `json:"mask,omitempty"`
-	RouteAdvertisement    string `json:"routeAdvertisement,omitempty" bool:"enabled"`
+	RouteAdvertisement    string `json:"routeAdvertisement,omitempty"`
 	ServerScope           string `json:"serverScope,omitempty"`
 	TrafficGroup          string `json:"trafficGroup,omitempty"`
 	Unit                  int    `json:"unit,omitempty"`
@@ -577,10 +583,6 @@ type virtualAddressDTO struct {
 
 type Policies struct {
 	Policies []Policy `json:"items"`
-}
-
-type VirtualServerPolicies struct {
-	PolicyRef Policies `json:"policiesReference"`
 }
 
 type Policy struct {
@@ -951,18 +953,18 @@ type Monitor struct {
 }
 
 type monitorDTO struct {
-	Name          string `json:"name,omitempty"`
-	Partition     string `json:"partition,omitempty"`
-	FullPath      string `json:"fullPath,omitempty"`
-	Generation    int    `json:"generation,omitempty"`
-	ParentMonitor string `json:"defaultsFrom,omitempty"`
-	Database      string `json:"database,omitempty"`
-	Description   string `json:"description,omitempty"`
-	Destination   string `json:"destination,omitempty"`
-	Interval      int    `json:"interval,omitempty"`
-	IPDSCP        int    `json:"ipDscp,omitempty"`
-	ManualResume  string `json:"manualResume,omitempty" bool:"enabled"`
-	// MonitorType    string
+	Name           string `json:"name,omitempty"`
+	Partition      string `json:"partition,omitempty"`
+	FullPath       string `json:"fullPath,omitempty"`
+	Generation     int    `json:"generation,omitempty"`
+	ParentMonitor  string `json:"defaultsFrom,omitempty"`
+	Database       string `json:"database,omitempty"`
+	Description    string `json:"description,omitempty"`
+	Destination    string `json:"destination,omitempty"`
+	Interval       int    `json:"interval,omitempty"`
+	IPDSCP         int    `json:"ipDscp,omitempty"`
+	ManualResume   string `json:"manualResume,omitempty" bool:"enabled"`
+	MonitorType    string `json:"monitorType,omitempty"`
 	Password       string `json:"password,omitempty"`
 	ReceiveColumn  string `json:"recvColumn,omitempty"`
 	ReceiveRow     string `json:"recvRow,omitempty"`
@@ -1045,6 +1047,9 @@ const (
 	CONTEXT_SERVER     = "serverside"
 	CONTEXT_CLIENT     = "clientside"
 	CONTEXT_ALL        = "all"
+
+	// Newer policy APIs have a draft-publish workflow that this library does not support.
+	policyVersionSuffix = "?ver=11.5.1"
 )
 
 var cidr = map[string]string{
@@ -1628,8 +1633,11 @@ func (b *BigIP) Pools() (*Pools, error) {
 }
 
 // PoolMembers returns a list of pool members for the given pool.
-func (b *BigIP) PoolMembers(name string) (*PoolMembers, error) {
+func (b *BigIP) PoolMembers(name string, partition string) (*PoolMembers, error) {
 	var poolMembers PoolMembers
+	if len(partition) > 0 {
+		name = "~" + partition + "~" + name
+	}
 	err, _ := b.getForEntity(&poolMembers, uriLtm, uriPool, name, uriPoolMember)
 	if err != nil {
 		return nil, err
@@ -1640,11 +1648,16 @@ func (b *BigIP) PoolMembers(name string) (*PoolMembers, error) {
 
 // AddPoolMember adds a node/member to the given pool. <member> must be in the form
 // of <node>:<port>, i.e.: "web-server1:443".
-func (b *BigIP) AddPoolMember(pool, member string) error {
+func (b *BigIP) AddPoolMember(pool, member string, partition string) error {
 	config := &poolMember{
 		Name: member,
 	}
-
+	if len(partition) > 0 {
+		// node partition
+		config.Partition = partition
+		// pool partition
+		pool = "~"+partition+"~"+pool
+	}
 	return b.post(config, uriLtm, uriPool, pool, uriPoolMember)
 }
 
@@ -1685,6 +1698,9 @@ func (b *BigIP) ModifyPoolMember(pool string, config *PoolMember) error {
 // PatchPoolMember will update the configuration of a particular pool member.
 // this requires at least PoolMember{FullPath: foo} and additional fields
 func (b *BigIP) PatchPoolMember(pool string, config *PoolMember) error {
+	if len(config.Partition) > 0 {
+		pool = "~" + config.Partition + "~"+pool
+	}
 	return b.patch(config, uriLtm, uriPool, pool, uriPoolMember, config.FullPath)
 }
 
@@ -1704,7 +1720,10 @@ func (b *BigIP) RemovePoolMember(pool string, config *PoolMember) error {
 
 // DeletePoolMember removes a member from the given pool. <member> must be in the form
 // of <node>:<port>, i.e.: "web-server1:443".
-func (b *BigIP) DeletePoolMember(pool string, member string) error {
+func (b *BigIP) DeletePoolMember(pool string, member string, partition string) error {
+	if len(partition) > 0 {
+		pool = "~" + partition + "~" + pool
+	}
 	return b.delete(uriLtm, uriPool, pool, uriPoolMember, member)
 }
 
@@ -1734,11 +1753,14 @@ func (b *BigIP) PoolMemberStatus(pool string, member string, state string, owner
 }
 
 // CreatePool adds a new pool to the BIG-IP system by name.
-func (b *BigIP) CreatePool(name string) error {
+func (b *BigIP) CreatePool(name string, partition string) error {
 	config := &Pool{
 		Name: name,
 	}
 
+	if len(partition) > 0 {
+		config.Partition = partition
+	}
 	return b.post(config, uriLtm, uriPool)
 }
 
@@ -1748,8 +1770,11 @@ func (b *BigIP) AddPool(config *Pool) error {
 }
 
 // Get a Pool by name. Returns nil if the Pool does not exist
-func (b *BigIP) GetPool(name string) (*Pool, error) {
+func (b *BigIP) GetPool(name string, partition string) (*Pool, error) {
 	var pool Pool
+	if len(partition) > 0 {
+		name = "~"+partition+"~"+name
+	}
 	err, ok := b.getForEntity(&pool, uriLtm, uriPool, name)
 	if err != nil {
 		return nil, err
@@ -1762,7 +1787,10 @@ func (b *BigIP) GetPool(name string) (*Pool, error) {
 }
 
 // DeletePool removes a pool.
-func (b *BigIP) DeletePool(name string) error {
+func (b *BigIP) DeletePool(name string, partition string) error {
+	if len(partition) > 0 {
+		name = "~" + partition + "~" + name
+	}
 	return b.delete(uriLtm, uriPool, name)
 }
 
@@ -1861,13 +1889,13 @@ func (b *BigIP) VirtualServerProfiles(vs string) (*Profiles, error) {
 
 //Get the names of policies associated with a particular virtual server
 func (b *BigIP) VirtualServerPolicyNames(vs string) ([]string, error) {
-	var policies VirtualServerPolicies
+	var policies Policies
 	err, _ := b.getForEntity(&policies, uriLtm, uriVirtual, vs, "policies")
 	if err != nil {
 		return nil, err
 	}
-	retval := make([]string, 0, len(policies.PolicyRef.Policies))
-	for _, p := range policies.PolicyRef.Policies {
+	retval := make([]string, 0, len(policies.Policies))
+	for _, p := range policies.Policies {
 		retval = append(retval, p.FullPath)
 	}
 	return retval, nil
@@ -1938,7 +1966,7 @@ func (b *BigIP) Monitors() ([]Monitor, error) {
 
 // CreateMonitor adds a new monitor to the BIG-IP system. <monitorType> must be one of "http", "https",
 // "icmp", "gateway icmp", "inband", "postgresql", "mysql", "udp" or "tcp".
-func (b *BigIP) CreateMonitor(name, parent string, interval, timeout int, send, receive, monitorType string) error {
+func (b *BigIP) CreateMonitor(name, parent string, interval, timeout int, send, receive, monitorType string, partition string) error {
 	config := &Monitor{
 		Name:          name,
 		ParentMonitor: parent,
@@ -1947,7 +1975,9 @@ func (b *BigIP) CreateMonitor(name, parent string, interval, timeout int, send, 
 		SendString:    send,
 		ReceiveString: receive,
 	}
-
+	if len(partition) > 0 {
+		config.Partition = partition
+	}
 	return b.AddMonitor(config, monitorType)
 }
 
@@ -1961,10 +1991,10 @@ func (b *BigIP) AddMonitor(config *Monitor, monitorType string) error {
 }
 
 // GetVirtualServer retrieves a monitor by name. Returns nil if the monitor does not exist
-func (b *BigIP) GetMonitor(name string, parent string) (*Monitor, error) {
+func (b *BigIP) GetMonitor(name string, monitorType string) (*Monitor, error) {
 	// Add a verification that type is an accepted monitor type
 	var monitor Monitor
-	err, ok := b.getForEntity(&monitor, uriLtm, uriMonitor, parent, name)
+	err, ok := b.getForEntity(&monitor, uriLtm, uriMonitor, monitorType, name)
 	if err != nil {
 		return nil, err
 	}
@@ -1976,8 +2006,11 @@ func (b *BigIP) GetMonitor(name string, parent string) (*Monitor, error) {
 }
 
 // DeleteMonitor removes a monitor.
-func (b *BigIP) DeleteMonitor(name, parent string) error {
-	return b.delete(uriLtm, uriMonitor, parent, name)
+func (b *BigIP) DeleteMonitor(name, monitorType string, partition string) error {
+	if len(partition) > 0 {
+		name = "~" + partition + "~" + name
+	}
+	return b.delete(uriLtm, uriMonitor, monitorType, name)
 }
 
 // ModifyMonitor allows you to change any attribute of a monitor. <monitorType> must
@@ -1993,15 +2026,24 @@ func (b *BigIP) ModifyMonitor(name, monitorType string, config *Monitor) error {
 
 // PatchMonitor allows you to change any attribute of a monitor.
 func (b *BigIP) PatchMonitor(name, monitorType string, config *Monitor) error {
+	if len(config.Partition) > 0 {
+		name = "~" + config.Partition + "~"+name
+	}
 	return b.patch(config, uriLtm, uriMonitor, monitorType, name)
 }
 
 // AddMonitorToPool assigns the monitor, <monitor> to the given <pool>.
-func (b *BigIP) AddMonitorToPool(monitor, pool string) error {
+func (b *BigIP) AddMonitorToPool(monitor, pool string, partition string) error {
 	config := &Pool{
 		Monitor: monitor,
 	}
 
+	if len(partition) > 0 {
+		// node partition
+		config.Partition = partition
+		// pool partition
+		pool = "~"+partition+"~"+pool
+	}
 	return b.patch(config, uriLtm, uriPool, pool)
 }
 
@@ -2051,7 +2093,7 @@ func (b *BigIP) ModifyIRule(name string, irule *IRule) error {
 
 func (b *BigIP) Policies() (*Policies, error) {
 	var p Policies
-	err, _ := b.getForEntity(&p, uriLtm, uriPolicy)
+	err, _ := b.getForEntity(&p, uriLtm, uriPolicy, policyVersionSuffix)
 	if err != nil {
 		return nil, err
 	}
@@ -2062,7 +2104,7 @@ func (b *BigIP) Policies() (*Policies, error) {
 //Load a fully policy definition. Policies seem to be best dealt with as one big entity.
 func (b *BigIP) GetPolicy(name string) (*Policy, error) {
 	var p Policy
-	err, ok := b.getForEntity(&p, uriLtm, uriPolicy, name)
+	err, ok := b.getForEntity(&p, uriLtm, uriPolicy, name, policyVersionSuffix)
 	if err != nil {
 		return nil, err
 	}
@@ -2071,7 +2113,7 @@ func (b *BigIP) GetPolicy(name string) (*Policy, error) {
 	}
 
 	var rules PolicyRules
-	err, _ = b.getForEntity(&rules, uriLtm, uriPolicy, name, "rules")
+	err, _ = b.getForEntity(&rules, uriLtm, uriPolicy, name, "rules", policyVersionSuffix)
 	if err != nil {
 		return nil, err
 	}
@@ -2081,11 +2123,11 @@ func (b *BigIP) GetPolicy(name string) (*Policy, error) {
 		var a PolicyRuleActions
 		var c PolicyRuleConditions
 
-		err, _ = b.getForEntity(&a, uriLtm, uriPolicy, name, "rules", p.Rules[i].Name, "actions")
+		err, _ = b.getForEntity(&a, uriLtm, uriPolicy, name, "rules", p.Rules[i].Name, "actions", policyVersionSuffix)
 		if err != nil {
 			return nil, err
 		}
-		err, _ = b.getForEntity(&c, uriLtm, uriPolicy, name, "rules", p.Rules[i].Name, "conditions")
+		err, _ = b.getForEntity(&c, uriLtm, uriPolicy, name, "rules", p.Rules[i].Name, "conditions", policyVersionSuffix)
 		if err != nil {
 			return nil, err
 		}
@@ -2112,16 +2154,16 @@ func normalizePolicy(p *Policy) {
 //Create a new policy. It is not necessary to set the Ordinal fields on subcollections.
 func (b *BigIP) CreatePolicy(p *Policy) error {
 	normalizePolicy(p)
-	return b.post(p, uriLtm, uriPolicy)
+	return b.post(p, uriLtm, uriPolicy, policyVersionSuffix)
 }
 
 //Update an existing policy.
 func (b *BigIP) UpdatePolicy(name string, p *Policy) error {
 	normalizePolicy(p)
-	return b.put(p, uriLtm, uriPolicy, name)
+	return b.put(p, uriLtm, uriPolicy, name, policyVersionSuffix)
 }
 
 //Delete a policy by name.
 func (b *BigIP) DeletePolicy(name string) error {
-	return b.delete(uriLtm, uriPolicy, name)
+	return b.delete(uriLtm, uriPolicy, name, policyVersionSuffix)
 }

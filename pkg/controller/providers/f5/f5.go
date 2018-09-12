@@ -31,22 +31,25 @@ type ProviderF5 struct {
 	addresses    []string
 	currentaddr  int
 	groupname    string
+	partition    string
 }
 
 func init() {
-	controller.RegisterProvider(providerName, newProviderF5())
+	controller.RegisterProvider(providerName, NewProviderF5())
 }
 
-func newProviderF5() *ProviderF5 {
+// NewProviderF5 returns new f5 provider for testing purposes
+func NewProviderF5() *ProviderF5 {
 	f5 := ProviderF5{
 		currentaddr: 0,
 		groupname:   "cluster",
+		partition:   "",
 	}
 	return &f5
 }
 
 func alreadyExist(err error) bool {
-	if strings.HasSuffix(err.Error(), "already exists in partition Common.") {
+	if strings.HasSuffix(err.Error(), "already exists in partition.") {
 		return true
 	}
 	return false
@@ -87,12 +90,18 @@ func (f5 *ProviderF5) Initialize() {
 	}
 	f5.username = username
 	f5.password = password
+
+	partition := os.Getenv("PARTITION")
+	if len(partition) > 0 {
+		f5.partition = partition
+	}
+
 	f5.session = bigip.NewSession(f5.addresses[0], f5.username, f5.password, nil)
 }
 
 // CreatePool creates new loadbalancer pool
 func (f5 *ProviderF5) CreatePool(name string, port string) error {
-	err := f5.session.CreatePool(name + "_" + port)
+	err := f5.session.CreatePool(name+"_"+port, f5.partition)
 	if err != nil {
 		if !alreadyExist(err) {
 			return err
@@ -104,7 +113,7 @@ func (f5 *ProviderF5) CreatePool(name string, port string) error {
 // AddPoolMember adds new member to pool
 func (f5 *ProviderF5) AddPoolMember(membername string, name string, port string) error {
 	f5.Clusteralias = membername
-	err := f5.session.AddPoolMember(name+"_"+port, membername+":"+port)
+	err := f5.session.AddPoolMember(name+"_"+port, membername+":"+port, f5.partition)
 	if err != nil {
 		if !alreadyExist(err) {
 			return err
@@ -115,7 +124,7 @@ func (f5 *ProviderF5) AddPoolMember(membername string, name string, port string)
 
 func (f5 *ProviderF5) modifyMember(name string, port string, maintenance bool, prio int) {
 	// we need use this because getpoolmember is not working correctly
-	members, err := f5.session.PoolMembers(name + "_" + port)
+	members, err := f5.session.PoolMembers(name + "_" + port, f5.partition)
 	if err != nil {
 		log.Printf("error in getpoolmembers %v", err)
 		return
@@ -125,6 +134,7 @@ func (f5 *ProviderF5) modifyMember(name string, port string, maintenance bool, p
 			config := &bigip.PoolMember{
 				FullPath:      item.FullPath,
 				PriorityGroup: prio,
+				Partition:     f5.partition,
 			}
 			if maintenance {
 				config.Session = "user-disabled"
@@ -144,7 +154,7 @@ func (f5 *ProviderF5) modifyMember(name string, port string, maintenance bool, p
 
 // ModifyPool modifies loadbalancer pool
 func (f5 *ProviderF5) ModifyPool(name string, port string, loadBalancingMethod string, pga int, maintenance bool, prio int) error {
-	pool, err := f5.session.GetPool(name + "_" + port)
+	pool, err := f5.session.GetPool(name + "_" + port, f5.partition)
 	if err != nil {
 		return err
 	}
@@ -170,7 +180,7 @@ func (f5 *ProviderF5) CreateMonitor(host string, port string, uri string, httpMe
 	if port == "443" {
 		scheme = "https"
 	}
-	err := f5.session.CreateMonitor(host+"_"+port, scheme, interval, timeout, httpMethod+" "+uri+" HTTP/1.1\r\nHost:"+host+"  \r\nConnection: Close\r\n\r\n", "^HTTP.1.(0|1) ([2|3]0[0-9])", scheme)
+	err := f5.session.CreateMonitor(host+"_"+port, scheme, interval, timeout, httpMethod+" "+uri+" HTTP/1.1\r\nHost:"+host+"  \r\nConnection: Close\r\n\r\n", "^HTTP.1.(0|1) ([2|3]0[0-9])", scheme, f5.partition)
 	if err != nil {
 		if !alreadyExist(err) {
 			return err
@@ -189,6 +199,7 @@ func (f5 *ProviderF5) ModifyMonitor(host string, port string, uri string, httpMe
 		Interval:   interval,
 		Timeout:    timeout,
 		SendString: httpMethod + " " + uri + " HTTP/1.1\r\nHost:" + host + "  \r\nConnection: Close\r\n\r\n",
+		Partition:  f5.partition,
 	}
 	err := f5.session.PatchMonitor(host+"_"+port, scheme, config)
 	if err != nil {
@@ -199,7 +210,7 @@ func (f5 *ProviderF5) ModifyMonitor(host string, port string, uri string, httpMe
 
 // AddMonitorToPool adds monitor to pool
 func (f5 *ProviderF5) AddMonitorToPool(name string, port string) error {
-	err := f5.session.AddMonitorToPool(name+"_"+port, name+"_"+port)
+	err := f5.session.AddMonitorToPool(name+"_"+port, name+"_"+port, f5.partition)
 	if err != nil {
 		if !alreadyExist(err) {
 			return err
@@ -210,7 +221,7 @@ func (f5 *ProviderF5) AddMonitorToPool(name string, port string) error {
 
 // DeletePoolMember delete pool member
 func (f5 *ProviderF5) DeletePoolMember(membername string, poolname string, poolport string) error {
-	return f5.session.DeletePoolMember(poolname+"_"+poolport, membername+":"+poolport)
+	return f5.session.DeletePoolMember(poolname+"_"+poolport, membername+":"+poolport, f5.partition)
 }
 
 // CheckAndClean checks pool members and if 0 members left in pool, delete monitor and delete pool
@@ -219,17 +230,16 @@ func (f5 *ProviderF5) CheckAndClean(name string, port string) {
 	if port == "443" {
 		scheme = "https"
 	}
-	members, err := f5.session.PoolMembers(name + "_" + port)
+	members, err := f5.session.PoolMembers(name + "_" + port, f5.partition)
 	if err != nil {
 		log.Printf("error retrieving poolmembers %s %v", name+"_"+port, err)
 	}
 	if len(members.PoolMembers) == 0 {
-		err = f5.session.DeletePool(name + "_" + port)
+		err = f5.session.DeletePool(name + "_" + port, f5.partition)
 		if err != nil {
 			log.Printf("error delete pool %s %v", name+"_"+port, err)
 		}
-
-		err = f5.session.DeleteMonitor(name+"_"+port, scheme)
+		err = f5.session.DeleteMonitor(name+"_"+port, scheme, f5.partition)
 		if err != nil {
 			log.Printf("error delete monitor %s %v", name+"_"+port, err)
 		}
@@ -237,7 +247,7 @@ func (f5 *ProviderF5) CheckAndClean(name string, port string) {
 }
 
 func (f5 *ProviderF5) poolMemberExist(pool bigip.Pool, membername string) bool {
-	members, err := f5.session.PoolMembers(pool.Name)
+	members, err := f5.session.PoolMembers(pool.Name, f5.partition)
 	if err != nil {
 		log.Printf("error in poolmembers %v", err)
 		return false
@@ -253,10 +263,27 @@ func (f5 *ProviderF5) poolMemberExist(pool bigip.Pool, membername string) bool {
 	return false
 }
 
+func (f5 *ProviderF5) getPools() (*bigip.Pools, error) {
+	var filteredPools *bigip.Pools
+	filteredPools = &bigip.Pools{}
+	pools, err := f5.session.Pools()
+	if err != nil {
+		return filteredPools, err
+	}
+	for _, pool := range pools.Pools {
+		if len(f5.partition) == 0 && pool.Partition == "Common" {
+			filteredPools.Pools = append(filteredPools.Pools, pool)
+		} else if (pool.Partition == f5.partition) {
+			filteredPools.Pools = append(filteredPools.Pools, pool)
+		}
+	}
+	return filteredPools, err
+}
+
 // CheckPools compares current load balancer setup and what routes we have. It returns list of pools which should be removed
 func (f5 *ProviderF5) CheckPools(routes []v1.Route, hosttowatch string, membername string) map[string]bool {
 	hosts := map[string]bool{}
-	pools, err := f5.session.Pools()
+	pools, err := f5.getPools()
 	if err != nil {
 		log.Printf("error fetching pool %v", err)
 		return hosts
@@ -286,6 +313,7 @@ func (f5 *ProviderF5) PreUpdate() {
 	if len(f5.addresses) == 1 {
 		return
 	}
+	// TODO: partition?
 	device, err := f5.session.GetCurrentDevice()
 	if err != nil {
 		msg := fmt.Sprintf("Error in PreUpdate %v", err)
@@ -312,6 +340,7 @@ func (f5 *ProviderF5) PostUpdate() {
 	if len(f5.addresses) == 1 {
 		return
 	}
+	// TODO: partition?
 	err := f5.session.ConfigSyncToGroup(f5.groupname)
 	if err != nil {
 		msg := fmt.Sprintf("Error in PostUpdate %v", err)
