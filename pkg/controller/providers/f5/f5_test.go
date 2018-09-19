@@ -7,7 +7,7 @@ SPDX-License-Identifier: Apache-2.0
 package f5
 
 import (
-	bigip "github.com/scottdware/go-bigip"
+	bigip "github.com/zetaab/go-bigip"
 	"testing"
 )
 

@@ -17,7 +17,7 @@ import (
 	"github.com/ElisaOyj/openshift-lb-controller/pkg/controller"
 	"github.com/getsentry/raven-go"
 	v1 "github.com/openshift/api/route/v1"
-	bigip "github.com/scottdware/go-bigip"
+	bigip "github.com/zetaab/go-bigip"
 )
 
 const providerName = "f5"
