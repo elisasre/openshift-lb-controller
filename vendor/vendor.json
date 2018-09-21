@@ -247,12 +247,6 @@
 			"revisionTime": "2016-01-10T10:55:54Z"
 		},
 		{
-			"checksumSHA1": "ABIfbWUnvxd4orZKWcbswVSGHXI=",
-			"path": "github.com/scottdware/go-bigip",
-			"revision": "3178fdd523216c41dd0b5267a6846464358fc441",
-			"revisionTime": "2018-03-15T11:02:18Z"
-		},
-		{
 			"checksumSHA1": "IqQYgj/sEv4kgqJ7UT21PkeSMPA=",
 			"path": "github.com/spf13/pflag",
 			"revision": "ee5fd03fd6acfd43e44aea0b4135958546ed8e73",
@@ -275,6 +269,12 @@
 			"path": "github.com/stretchr/testify/suite",
 			"revision": "b89eecf5ca5db6d3ba60b237ffe3df7bafb7662f",
 			"revisionTime": "2018-03-03T13:51:14Z"
+		},
+		{
+			"checksumSHA1": "f0lIwmlLUSuPdJpNLIWwL+/f8JU=",
+			"path": "github.com/zetaab/go-bigip",
+			"revision": "4e84eb745588d1818e154cadddeb0ac665b79965",
+			"revisionTime": "2018-09-19T08:31:04Z"
 		},
 		{
 			"checksumSHA1": "3m50c5IUZcbdAZSEaZK00SYtFW0=",
