@@ -48,8 +48,9 @@ func NewProviderF5() *ProviderF5 {
 	return &f5
 }
 
-func alreadyExist(err error) bool {
-	if strings.HasSuffix(err.Error(), "already exists in partition.") {
+func alreadyExist(err error, partition string) bool {
+	compareTxt := fmt.Sprintf("already exists in partition %s.", partition)
+	if strings.HasSuffix(err.Error(), compareTxt) {
 		return true
 	}
 	return false
@@ -103,7 +104,7 @@ func (f5 *ProviderF5) Initialize() {
 func (f5 *ProviderF5) CreatePool(name string, port string) error {
 	err := f5.session.CreatePool(name+"_"+port, f5.partition)
 	if err != nil {
-		if !alreadyExist(err) {
+		if !alreadyExist(err, f5.partition) {
 			return err
 		}
 	}
@@ -115,7 +116,7 @@ func (f5 *ProviderF5) AddPoolMember(membername string, name string, port string)
 	f5.Clusteralias = membername
 	err := f5.session.AddPoolMember(name+"_"+port, membername+":"+port, f5.partition)
 	if err != nil {
-		if !alreadyExist(err) {
+		if !alreadyExist(err, f5.partition) {
 			return err
 		}
 	}
@@ -182,7 +183,7 @@ func (f5 *ProviderF5) CreateMonitor(host string, port string, uri string, httpMe
 	}
 	err := f5.session.CreateMonitor(host+"_"+port, scheme, interval, timeout, httpMethod+" "+uri+" HTTP/1.1\r\nHost:"+host+"  \r\nConnection: Close\r\n\r\n", "^HTTP.1.(0|1) ([2|3]0[0-9])", scheme, f5.partition)
 	if err != nil {
-		if !alreadyExist(err) {
+		if !alreadyExist(err, f5.partition) {
 			return err
 		}
 	}
@@ -212,7 +213,7 @@ func (f5 *ProviderF5) ModifyMonitor(host string, port string, uri string, httpMe
 func (f5 *ProviderF5) AddMonitorToPool(name string, port string) error {
 	err := f5.session.AddMonitorToPool(name+"_"+port, name+"_"+port, f5.partition)
 	if err != nil {
-		if !alreadyExist(err) {
+		if !alreadyExist(err, f5.partition) {
 			return err
 		}
 	}
