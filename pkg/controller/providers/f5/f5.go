@@ -17,7 +17,7 @@ import (
 	"github.com/ElisaOyj/openshift-lb-controller/pkg/controller"
 	"github.com/getsentry/raven-go"
 	v1 "github.com/openshift/api/route/v1"
-	bigip "github.com/zetaab/go-bigip"
+	bigip "github.com/scottdware/go-bigip"
 )
 
 const providerName = "f5"
@@ -43,7 +43,7 @@ func NewProviderF5() *ProviderF5 {
 	f5 := ProviderF5{
 		currentaddr: 0,
 		groupname:   "cluster",
-		partition:   "",
+		partition:   "Common",
 	}
 	return &f5
 }
@@ -54,6 +54,10 @@ func alreadyExist(err error, partition string) bool {
 		return true
 	}
 	return false
+}
+
+func getNameWithPool(partition string, name string) string {
+	return fmt.Sprintf("/%s/%s", partition, name)
 }
 
 // Initialize initilizes new provider
@@ -102,7 +106,11 @@ func (f5 *ProviderF5) Initialize() {
 
 // CreatePool creates new loadbalancer pool
 func (f5 *ProviderF5) CreatePool(name string, port string) error {
-	err := f5.session.CreatePool(name+"_"+port, f5.partition)
+	f5Pool := &bigip.Pool{
+		Name:      name + "_" + port,
+		Partition: f5.partition,
+	}
+	err := f5.session.AddPool(f5Pool)
 	if err != nil {
 		if !alreadyExist(err, f5.partition) {
 			return err
@@ -114,7 +122,7 @@ func (f5 *ProviderF5) CreatePool(name string, port string) error {
 // AddPoolMember adds new member to pool
 func (f5 *ProviderF5) AddPoolMember(membername string, name string, port string) error {
 	f5.Clusteralias = membername
-	err := f5.session.AddPoolMember(name+"_"+port, membername+":"+port, f5.partition)
+	err := f5.session.AddPoolMember(getNameWithPool(f5.partition, name+"_"+port), getNameWithPool(f5.partition, membername+":"+port))
 	if err != nil {
 		if !alreadyExist(err, f5.partition) {
 			return err
@@ -125,7 +133,7 @@ func (f5 *ProviderF5) AddPoolMember(membername string, name string, port string)
 
 func (f5 *ProviderF5) modifyMember(name string, port string, maintenance bool, prio int) {
 	// we need use this because getpoolmember is not working correctly
-	members, err := f5.session.PoolMembers(name+"_"+port, f5.partition)
+	members, err := f5.session.PoolMembers(getNameWithPool(f5.partition, name+"_"+port))
 	if err != nil {
 		log.Printf("error in getpoolmembers %v", err)
 		return
@@ -144,7 +152,7 @@ func (f5 *ProviderF5) modifyMember(name string, port string, maintenance bool, p
 				config.Session = "user-enabled"
 				log.Printf("setting poolmember %s in pool %s_%s to enabled", f5.Clusteralias, name, port)
 			}
-			err = f5.session.PatchPoolMember(name+"_"+port, config)
+			err = f5.session.PatchPoolMember(getNameWithPool(f5.partition, name+"_"+port), config)
 			if err != nil {
 				log.Printf("error in modifyMember %v", err)
 			}
@@ -155,7 +163,7 @@ func (f5 *ProviderF5) modifyMember(name string, port string, maintenance bool, p
 
 // ModifyPool modifies loadbalancer pool
 func (f5 *ProviderF5) ModifyPool(name string, port string, loadBalancingMethod string, pga int, maintenance bool, prio int) error {
-	pool, err := f5.session.GetPool(name+"_"+port, f5.partition)
+	pool, err := f5.session.GetPool(getNameWithPool(f5.partition, name+"_"+port))
 	if err != nil {
 		return err
 	}
@@ -181,7 +189,7 @@ func (f5 *ProviderF5) CreateMonitor(host string, port string, uri string, httpMe
 	if port == "443" {
 		scheme = "https"
 	}
-	err := f5.session.CreateMonitor(host+"_"+port, scheme, interval, timeout, httpMethod+" "+uri+" HTTP/1.1\r\nHost:"+host+"  \r\nConnection: Close\r\n\r\n", "^HTTP.1.(0|1) ([2|3]0[0-9])", scheme, f5.partition)
+	err := f5.session.CreateMonitor(getNameWithPool(f5.partition, host+"_"+port), scheme, interval, timeout, httpMethod+" "+uri+" HTTP/1.1\r\nHost:"+host+"  \r\nConnection: Close\r\n\r\n", "^HTTP.1.(0|1) ([2|3]0[0-9])", scheme)
 	if err != nil {
 		if !alreadyExist(err, f5.partition) {
 			return err
@@ -202,7 +210,7 @@ func (f5 *ProviderF5) ModifyMonitor(host string, port string, uri string, httpMe
 		SendString: httpMethod + " " + uri + " HTTP/1.1\r\nHost:" + host + "  \r\nConnection: Close\r\n\r\n",
 		Partition:  f5.partition,
 	}
-	err := f5.session.PatchMonitor(host+"_"+port, scheme, config)
+	err := f5.session.PatchMonitor(getNameWithPool(f5.partition, host+"_"+port), scheme, config)
 	if err != nil {
 		return err
 	}
@@ -211,7 +219,7 @@ func (f5 *ProviderF5) ModifyMonitor(host string, port string, uri string, httpMe
 
 // AddMonitorToPool adds monitor to pool
 func (f5 *ProviderF5) AddMonitorToPool(name string, port string) error {
-	err := f5.session.AddMonitorToPool(name+"_"+port, name+"_"+port, f5.partition)
+	err := f5.session.AddMonitorToPool(name+"_"+port, getNameWithPool(f5.partition, name+"_"+port))
 	if err != nil {
 		if !alreadyExist(err, f5.partition) {
 			return err
@@ -222,7 +230,7 @@ func (f5 *ProviderF5) AddMonitorToPool(name string, port string) error {
 
 // DeletePoolMember delete pool member
 func (f5 *ProviderF5) DeletePoolMember(membername string, poolname string, poolport string) error {
-	return f5.session.DeletePoolMember(poolname+"_"+poolport, membername+":"+poolport, f5.partition)
+	return f5.session.DeletePoolMember(getNameWithPool(f5.partition, poolname+"_"+poolport), membername+":"+poolport)
 }
 
 // CheckAndClean checks pool members and if 0 members left in pool, delete monitor and delete pool
@@ -231,24 +239,25 @@ func (f5 *ProviderF5) CheckAndClean(name string, port string) {
 	if port == "443" {
 		scheme = "https"
 	}
-	members, err := f5.session.PoolMembers(name+"_"+port, f5.partition)
+	members, err := f5.session.PoolMembers(getNameWithPool(f5.partition, name+"_"+port))
 	if err != nil {
 		log.Printf("error retrieving poolmembers %s %v", name+"_"+port, err)
 	}
 	if len(members.PoolMembers) == 0 {
-		err = f5.session.DeletePool(name+"_"+port, f5.partition)
+		f5name := getNameWithPool(f5.partition, name+"_"+port)
+		err = f5.session.DeletePool(f5name)
 		if err != nil {
-			log.Printf("error delete pool %s %v", name+"_"+port, err)
+			log.Printf("error delete pool %s %v", f5name, err)
 		}
-		err = f5.session.DeleteMonitor(name+"_"+port, scheme, f5.partition)
+		err = f5.session.DeleteMonitor(f5name, scheme)
 		if err != nil {
-			log.Printf("error delete monitor %s %v", name+"_"+port, err)
+			log.Printf("error delete monitor %s %v", f5name, err)
 		}
 	}
 }
 
 func (f5 *ProviderF5) poolMemberExist(pool bigip.Pool, membername string) bool {
-	members, err := f5.session.PoolMembers(pool.Name, f5.partition)
+	members, err := f5.session.PoolMembers(getNameWithPool(f5.partition, pool.Name))
 	if err != nil {
 		log.Printf("error in poolmembers %v", err)
 		return false
