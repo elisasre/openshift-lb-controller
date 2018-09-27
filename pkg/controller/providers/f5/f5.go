@@ -56,7 +56,6 @@ func alreadyExist(err error, partition string) bool {
 	return false
 }
 
-
 func getNameWithPool(partition string, name string) string {
 	return fmt.Sprintf("/%s/%s", partition, name)
 }
@@ -108,8 +107,8 @@ func (f5 *ProviderF5) Initialize() {
 // CreatePool creates new loadbalancer pool
 func (f5 *ProviderF5) CreatePool(name string, port string) error {
 	f5Pool := &bigip.Pool{
-	    Name:      name+"_"+port,
-	    Partition:  f5.partition,
+		Name:      name + "_" + port,
+		Partition: f5.partition,
 	}
 	err := f5.session.AddPool(f5Pool)
 	if err != nil {
