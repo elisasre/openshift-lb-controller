@@ -178,12 +178,11 @@ func (f5 *ProviderF5) ModifyPool(name string, port string, loadBalancingMethod s
 	pool.MinActiveMembers = pga
 	// if pga is enabled use 0sec slow ramp time
 	if pga > 0 {
-		// should be 0 but because of bug in lib we set it to 1 https://github.com/scottdware/go-bigip/issues/74
-		log.Printf("modifying slow ramp time pool to 1 %s", name+"_"+port)
-		pool.SlowRampTime = 1
+		log.Printf("modifying slow ramp time pool to 0 %s", name+"_"+port)
+		pool.SlowRampTime = f5.session.IntToPointer(0)
 	} else {
 		log.Printf("modifying slow ramp time pool to 10 %s", name+"_"+port)
-		pool.SlowRampTime = 10
+		pool.SlowRampTime = f5.session.IntToPointer(10)
 	}
 	f5.modifyMember(name, port, maintenance, prio)
 	// override servicedownaction to reset
