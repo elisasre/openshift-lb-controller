@@ -107,8 +107,9 @@ func (f5 *ProviderF5) Initialize() {
 // CreatePool creates new loadbalancer pool
 func (f5 *ProviderF5) CreatePool(name string, port string) error {
 	f5Pool := &bigip.Pool{
-		Name:      name + "_" + port,
-		Partition: f5.partition,
+		Name:              name + "_" + port,
+		Partition:         f5.partition,
+		ServiceDownAction: "reset",
 	}
 	err := f5.session.AddPool(f5Pool)
 	if err != nil {
@@ -175,7 +176,18 @@ func (f5 *ProviderF5) ModifyPool(name string, port string, loadBalancingMethod s
 	pool.LoadBalancingMode = targetmode
 	log.Printf("changing pool %s pga to %d", name+"_"+port, pga)
 	pool.MinActiveMembers = pga
+	// if pga is enabled use 0sec slow ramp time
+	if pga > 0 {
+		log.Printf("modifying slow ramp time pool to 0 %s", name+"_"+port)
+		pool.SlowRampTime = f5.session.IntToPointer(0)
+	} else {
+		log.Printf("modifying slow ramp time pool to 10 %s", name+"_"+port)
+		pool.SlowRampTime = f5.session.IntToPointer(10)
+	}
 	f5.modifyMember(name, port, maintenance, prio)
+	// override servicedownaction to reset
+	log.Printf("changing pool serviceaction down to reset %s", name+"_"+port)
+	pool.ServiceDownAction = "reset"
 	err = f5.session.ModifyPool(name+"_"+port, pool)
 	if err != nil {
 		return err
