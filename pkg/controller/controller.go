@@ -35,6 +35,7 @@ const (
 	poolRouteMethodAnnotation     = "route.elisa.fi/lbmethod"
 	poolPGARouteMethodAnnotation  = "route.elisa.fi/poolpga"
 	overridePriorityGrpAnnotation = "route.elisa.fi/prio"
+	roleAnnotation                = "route.elisa.fi/role"
 	// CustomHostAnnotation is annotation which enables lb for custom route hostname
 	CustomHostAnnotation = "route.elisa.fi/lbenabled"
 
@@ -143,7 +144,7 @@ func (c *RouteController) cleanUp() {
 	}
 }
 
-func (c *RouteController) checkExternalLBDoesExists(host string, uri string, httpMethod string, loadBalancingMethod string, pga int, maintenance bool, prio int) {
+func (c *RouteController) checkExternalLBDoesExists(host string, uri string, httpMethod string, loadBalancingMethod string, pga int, maintenance bool, prio int, role string) {
 	c.provider.PreUpdate()
 	err := c.provider.CreatePool(host, "80")
 	if err != nil {
@@ -179,7 +180,7 @@ func (c *RouteController) checkExternalLBDoesExists(host string, uri string, htt
 		log.Printf(msg)
 	}
 
-	err = c.provider.ModifyPool(host, "80", loadBalancingMethod, pga, maintenance, prio)
+	err = c.provider.ModifyPool(host, "80", loadBalancingMethod, pga, maintenance, prio, role)
 	if err != nil {
 		msg := fmt.Sprintf("Error in ModifyPool %s: %v", host, err)
 		if common.SentryEnabled() {
@@ -187,7 +188,7 @@ func (c *RouteController) checkExternalLBDoesExists(host string, uri string, htt
 		}
 		log.Printf(msg)
 	}
-	err = c.provider.ModifyPool(host, "443", loadBalancingMethod, pga, maintenance, prio)
+	err = c.provider.ModifyPool(host, "443", loadBalancingMethod, pga, maintenance, prio, role)
 	if err != nil {
 		msg := fmt.Sprintf("Error in ModifyPool %s: %v", host, err)
 		if common.SentryEnabled() {
@@ -272,23 +273,23 @@ func (c *RouteController) updateRoute(old interface{}, obj interface{}) {
 		// if old did not have and now it has
 		if (!strings.HasSuffix(routeold.Status.Ingress[0].Host, c.hosttowatch) && strings.HasSuffix(route.Status.Ingress[0].Host, c.hosttowatch)) || (!foundold && found) {
 			// read healthcheck path
-			healthCheckPath, healthCheckMethod, loadBalancingMethod, pga, maintenance, prio := overrideWithAnnotation(route)
-			c.checkExternalLBDoesExists(route.Status.Ingress[0].Host, healthCheckPath, healthCheckMethod, loadBalancingMethod, pga, maintenance, prio)
+			healthCheckPath, healthCheckMethod, loadBalancingMethod, pga, maintenance, prio, role := overrideWithAnnotation(route)
+			c.checkExternalLBDoesExists(route.Status.Ingress[0].Host, healthCheckPath, healthCheckMethod, loadBalancingMethod, pga, maintenance, prio, role)
 			// if old have and now it does not have
 		} else if (strings.HasSuffix(routeold.Status.Ingress[0].Host, c.hosttowatch) && !strings.HasSuffix(route.Status.Ingress[0].Host, c.hosttowatch)) || (!found && foundold) {
 			c.checkExternalLBDoesNotExists(routeold.Status.Ingress[0].Host)
 			// check annotation changes here
 		} else if strings.HasSuffix(route.Status.Ingress[0].Host, c.hosttowatch) || found {
-			healthCheckPathold, healthCheckMethodold, loadBalancingMethodold, pgaold, maintenanceold, prioold := overrideWithAnnotation(routeold)
-			healthCheckPath, healthCheckMethod, loadBalancingMethod, pga, maintenance, prio := overrideWithAnnotation(route)
+			healthCheckPathold, healthCheckMethodold, loadBalancingMethodold, pgaold, maintenanceold, prioold, roleold := overrideWithAnnotation(routeold)
+			healthCheckPath, healthCheckMethod, loadBalancingMethod, pga, maintenance, prio, role := overrideWithAnnotation(route)
 			host := route.Status.Ingress[0].Host
 			update := false
-			if loadBalancingMethodold != loadBalancingMethod || pgaold != pga || prioold != prio || maintenanceold != maintenance || healthCheckPathold != healthCheckPath || healthCheckMethodold != healthCheckMethod {
+			if loadBalancingMethodold != loadBalancingMethod || pgaold != pga || roleold != role || prioold != prio || maintenanceold != maintenance || healthCheckPathold != healthCheckPath || healthCheckMethodold != healthCheckMethod {
 				c.provider.PreUpdate()
 				update = true
 			}
-			if loadBalancingMethodold != loadBalancingMethod || pgaold != pga || prioold != prio || maintenanceold != maintenance {
-				err := c.provider.ModifyPool(host, "80", loadBalancingMethod, pga, maintenance, prio)
+			if loadBalancingMethodold != loadBalancingMethod || pgaold != pga || roleold != role || prioold != prio || maintenanceold != maintenance {
+				err := c.provider.ModifyPool(host, "80", loadBalancingMethod, pga, maintenance, prio, role)
 				if err != nil {
 					msg := fmt.Sprintf("Error in ModifyPool %s: %v", host, err)
 					if common.SentryEnabled() {
@@ -296,7 +297,7 @@ func (c *RouteController) updateRoute(old interface{}, obj interface{}) {
 					}
 					log.Printf(msg)
 				}
-				err = c.provider.ModifyPool(host, "443", loadBalancingMethod, pga, maintenance, prio)
+				err = c.provider.ModifyPool(host, "443", loadBalancingMethod, pga, maintenance, prio, role)
 				if err != nil {
 					msg := fmt.Sprintf("Error in ModifyPool %s: %v", host, err)
 					if common.SentryEnabled() {
@@ -344,18 +345,19 @@ func (c *RouteController) createRoute(obj interface{}) {
 	// has suffix what we are interested, skip others
 	if strings.HasSuffix(route.Spec.Host, c.hosttowatch) || found {
 		// read healthcheck path
-		healthCheckPath, healthCheckMethod, loadBalancingMethod, pga, maintenance, prio := overrideWithAnnotation(route)
-		c.checkExternalLBDoesExists(route.Spec.Host, healthCheckPath, healthCheckMethod, loadBalancingMethod, pga, maintenance, prio)
+		healthCheckPath, healthCheckMethod, loadBalancingMethod, pga, maintenance, prio, role := overrideWithAnnotation(route)
+		c.checkExternalLBDoesExists(route.Spec.Host, healthCheckPath, healthCheckMethod, loadBalancingMethod, pga, maintenance, prio, role)
 	}
 }
 
-func overrideWithAnnotation(route *v1r.Route) (string, string, string, int, bool, int) {
+func overrideWithAnnotation(route *v1r.Route) (string, string, string, int, bool, int, string) {
 	path := "/"
 	method := "GET"
 	lbmethod := ""
 	maintenance := false
 	pga := 0
 	prio := 1
+	role := ""
 	if annotationValue, ok := route.Annotations[healthCheckPathAnnotation]; ok {
 		path = annotationValue
 	}
@@ -390,5 +392,8 @@ func overrideWithAnnotation(route *v1r.Route) (string, string, string, int, bool
 			prio = i
 		}
 	}
-	return path, method, lbmethod, pga, maintenance, prio
+	if annotationValue, ok := route.Annotations[roleAnnotation]; ok {
+		role = annotationValue
+	}
+	return path, method, lbmethod, pga, maintenance, prio, role
 }

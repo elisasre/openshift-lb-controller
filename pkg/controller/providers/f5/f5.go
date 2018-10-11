@@ -163,7 +163,7 @@ func (f5 *ProviderF5) modifyMember(name string, port string, maintenance bool, p
 }
 
 // ModifyPool modifies loadbalancer pool
-func (f5 *ProviderF5) ModifyPool(name string, port string, loadBalancingMethod string, pga int, maintenance bool, prio int) error {
+func (f5 *ProviderF5) ModifyPool(name string, port string, loadBalancingMethod string, pga int, maintenance bool, prio int, role string) error {
 	pool, err := f5.session.GetPool(getNameWithPool(f5.partition, name+"_"+port))
 	if err != nil {
 		return err
@@ -174,16 +174,21 @@ func (f5 *ProviderF5) ModifyPool(name string, port string, loadBalancingMethod s
 	}
 	log.Printf("changing pool %s loadbalancingmode to %s", name+"_"+port, targetmode)
 	pool.LoadBalancingMode = targetmode
-	log.Printf("changing pool %s pga to %d", name+"_"+port, pga)
-	pool.MinActiveMembers = pga
-	// if pga is enabled use 0sec slow ramp time
-	if pga > 0 {
+	if strings.ToLower(role) == "active" || strings.ToLower(role) == "standby" {
 		log.Printf("modifying slow ramp time pool to 0 %s", name+"_"+port)
 		pool.SlowRampTime = f5.session.IntToPointer(0)
+		pga = 1
+		if strings.ToLower(role) == "active" {
+			prio = 20
+		} else if strings.ToLower(role) == "standby" {
+			prio = 15
+		}
 	} else {
 		log.Printf("modifying slow ramp time pool to 10 %s", name+"_"+port)
 		pool.SlowRampTime = f5.session.IntToPointer(10)
 	}
+	log.Printf("changing pool %s pga to %d", name+"_"+port, pga)
+	pool.MinActiveMembers = pga
 	f5.modifyMember(name, port, maintenance, prio)
 	// override servicedownaction to reset
 	log.Printf("changing pool serviceaction down to reset %s", name+"_"+port)
