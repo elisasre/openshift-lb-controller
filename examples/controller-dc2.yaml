@@ -70,6 +70,8 @@ spec:
           value: "dc.elisa.fi"
         - name: PROVIDER
           value: F5
+        - name: PARTITION
+          value: "ext"
         - name: CLUSTERALIAS
           value: "dc2"
         - name: F5_ADDR

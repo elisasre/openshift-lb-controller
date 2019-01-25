@@ -50,6 +50,7 @@ type RouteController struct {
 	hosttowatch   string
 	clusteralias  string
 	provider      ProviderInterface
+	partition     string
 }
 
 // Run starts the process for listening for route changes and acting upon those changes.
@@ -122,6 +123,11 @@ func NewRouteController(kclient *kubernetes.Clientset, config *restclient.Config
 			raven.CaptureErrorAndWait(err, nil)
 		}
 		panic(err)
+	}
+
+	partition := os.Getenv("PARTITION")
+	if len(partition) > 0 {
+		routeWatcher.partition = partition
 	}
 	routeWatcher.provider = provider
 	routeWatcher.provider.Initialize()
@@ -262,13 +268,21 @@ func (c *RouteController) checkExternalLBDoesNotExists(host string) {
 	log.Printf("delete external lb configuration host: %s from clusteralias: %s", host, c.clusteralias)
 }
 
+func (c *RouteController) matchCustomAnnotation(dict map[string]string, key string) bool {
+	if val, ok := dict[key]; ok {
+		if val == c.partition {
+			return true
+		}
+	}
+	return false
+}
+
 func (c *RouteController) updateRoute(old interface{}, obj interface{}) {
 	route := obj.(*v1r.Route)
 	routeold := old.(*v1r.Route)
 
-	_, found := route.Annotations[CustomHostAnnotation]
-	_, foundold := routeold.Annotations[CustomHostAnnotation]
-
+	found := c.matchCustomAnnotation(route.Annotations, CustomHostAnnotation)
+	foundold := c.matchCustomAnnotation(routeold.Annotations, CustomHostAnnotation)
 	if len(routeold.Status.Ingress) > 0 && len(route.Status.Ingress) > 0 {
 		// if old did not have and now it has
 		if (!strings.HasSuffix(routeold.Status.Ingress[0].Host, c.hosttowatch) && strings.HasSuffix(route.Status.Ingress[0].Host, c.hosttowatch)) || (!foundold && found) {
@@ -333,7 +347,7 @@ func (c *RouteController) updateRoute(old interface{}, obj interface{}) {
 
 func (c *RouteController) deleteRoute(obj interface{}) {
 	route := obj.(*v1r.Route)
-	_, found := route.Annotations[CustomHostAnnotation]
+	found := c.matchCustomAnnotation(route.Annotations, CustomHostAnnotation)
 	// has suffix what we are interested, skip others
 	if strings.HasSuffix(route.Spec.Host, c.hosttowatch) || found {
 		c.checkExternalLBDoesNotExists(route.Spec.Host)
@@ -341,7 +355,7 @@ func (c *RouteController) deleteRoute(obj interface{}) {
 }
 func (c *RouteController) createRoute(obj interface{}) {
 	route := obj.(*v1r.Route)
-	_, found := route.Annotations[CustomHostAnnotation]
+	found := c.matchCustomAnnotation(route.Annotations, CustomHostAnnotation)
 	// has suffix what we are interested, skip others
 	if strings.HasSuffix(route.Spec.Host, c.hosttowatch) || found {
 		// read healthcheck path
