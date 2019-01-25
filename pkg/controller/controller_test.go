@@ -17,6 +17,7 @@ func TestCreate(t *testing.T) {
 	fakeRouteController := &RouteController{}
 	fakeRouteController.hosttowatch = "test.com"
 	fakeRouteController.clusteralias = "dc1"
+	fakeRouteController.partition = "ext"
 
 	newfake := fake.NewFakeProvider()
 	fakeRouteController.provider = ProviderInterface(newfake)
@@ -45,7 +46,7 @@ func TestCreate(t *testing.T) {
 	obj = &v1.Route{
 		ObjectMeta: metav1.ObjectMeta{
 			Annotations: map[string]string{
-				CustomHostAnnotation: "enabled",
+				CustomHostAnnotation: "ext",
 			},
 		},
 		Spec: v1.RouteSpec{
@@ -62,6 +63,32 @@ func TestCreate(t *testing.T) {
 
 	if len(fakeRouteController.provider.Calls()) == 0 {
 		t.Errorf("excepted createpool")
+	}
+	fakeRouteController.provider.CleanCalls()
+	if len(fakeRouteController.provider.Calls()) != 0 {
+		t.Errorf("excepted clean calls")
+	}
+
+	obj = &v1.Route{
+		ObjectMeta: metav1.ObjectMeta{
+			Annotations: map[string]string{
+				CustomHostAnnotation: "int",
+			},
+		},
+		Spec: v1.RouteSpec{
+			Host: "leet.com",
+			To:   v1.RouteTargetReference{Name: "other"},
+			TLS:  &v1.TLSConfig{},
+		},
+		Status: v1.RouteStatus{
+			Ingress: []v1.RouteIngress{{}},
+		},
+	}
+
+	fakeRouteController.createRoute(obj)
+
+	if len(fakeRouteController.provider.Calls()) != 0 {
+		t.Errorf("excepted not call")
 	}
 	fakeRouteController.provider.CleanCalls()
 	if len(fakeRouteController.provider.Calls()) != 0 {
@@ -90,6 +117,7 @@ func TestDelete(t *testing.T) {
 	fakeRouteController := &RouteController{}
 	fakeRouteController.hosttowatch = "test.com"
 	fakeRouteController.clusteralias = "dc1"
+	fakeRouteController.partition = "ext"
 
 	newfake := fake.NewFakeProvider()
 	fakeRouteController.provider = ProviderInterface(newfake)
@@ -118,7 +146,7 @@ func TestDelete(t *testing.T) {
 	obj = &v1.Route{
 		ObjectMeta: metav1.ObjectMeta{
 			Annotations: map[string]string{
-				CustomHostAnnotation: "enabled",
+				CustomHostAnnotation: "ext",
 			},
 		},
 		Spec: v1.RouteSpec{
@@ -135,6 +163,32 @@ func TestDelete(t *testing.T) {
 
 	if len(fakeRouteController.provider.Calls()) == 0 {
 		t.Errorf("excepted deletepool")
+	}
+	fakeRouteController.provider.CleanCalls()
+	if len(fakeRouteController.provider.Calls()) != 0 {
+		t.Errorf("excepted clean calls")
+	}
+
+	obj = &v1.Route{
+		ObjectMeta: metav1.ObjectMeta{
+			Annotations: map[string]string{
+				CustomHostAnnotation: "int",
+			},
+		},
+		Spec: v1.RouteSpec{
+			Host: "leet.com",
+			To:   v1.RouteTargetReference{Name: "other"},
+			TLS:  &v1.TLSConfig{},
+		},
+		Status: v1.RouteStatus{
+			Ingress: []v1.RouteIngress{{}},
+		},
+	}
+
+	fakeRouteController.deleteRoute(obj)
+
+	if len(fakeRouteController.provider.Calls()) != 0 {
+		t.Errorf("excepted not do anything")
 	}
 	fakeRouteController.provider.CleanCalls()
 	if len(fakeRouteController.provider.Calls()) != 0 {
@@ -163,6 +217,7 @@ func TestUpdate(t *testing.T) {
 	fakeRouteController := &RouteController{}
 	fakeRouteController.hosttowatch = "test.com"
 	fakeRouteController.clusteralias = "dc1"
+	fakeRouteController.partition = "ext"
 
 	newfake := fake.NewFakeProvider()
 	fakeRouteController.provider = ProviderInterface(newfake)
@@ -318,7 +373,7 @@ func TestUpdate(t *testing.T) {
 	obj = &v1.Route{
 		ObjectMeta: metav1.ObjectMeta{
 			Annotations: map[string]string{
-				CustomHostAnnotation: "enabled",
+				CustomHostAnnotation: "ext",
 			},
 		},
 		Spec: v1.RouteSpec{
@@ -353,10 +408,50 @@ func TestUpdate(t *testing.T) {
 	if len(fakeRouteController.provider.Calls()) == 0 {
 		t.Errorf("excepted create")
 	}
+
 	if len(fakeRouteController.provider.Calls()) > 1 && fakeRouteController.provider.Calls()[1] != "CreatePool" {
 		t.Errorf("excepted create")
 	}
 	fakeRouteController.provider.CleanCalls()
+
+	// create
+	obj = &v1.Route{
+		ObjectMeta: metav1.ObjectMeta{
+			Annotations: map[string]string{
+				CustomHostAnnotation: "int",
+			},
+		},
+		Spec: v1.RouteSpec{
+			To:  v1.RouteTargetReference{Name: "other"},
+			TLS: &v1.TLSConfig{},
+		},
+		Status: v1.RouteStatus{
+			Ingress: []v1.RouteIngress{
+				{
+					Host: "foo.com",
+				},
+			},
+		},
+	}
+
+	obj2 = &v1.Route{
+		Spec: v1.RouteSpec{
+			To:  v1.RouteTargetReference{Name: "other"},
+			TLS: &v1.TLSConfig{},
+		},
+		Status: v1.RouteStatus{
+			Ingress: []v1.RouteIngress{
+				{
+					Host: "foo.com",
+				},
+			},
+		},
+	}
+
+	fakeRouteController.updateRoute(obj2, obj)
+	if len(fakeRouteController.provider.Calls()) != 0 {
+		t.Errorf("excepted not do anything")
+	}
 
 	// delete
 	obj = &v1.Route{
@@ -376,7 +471,7 @@ func TestUpdate(t *testing.T) {
 	obj2 = &v1.Route{
 		ObjectMeta: metav1.ObjectMeta{
 			Annotations: map[string]string{
-				CustomHostAnnotation: "enabled",
+				CustomHostAnnotation: "ext",
 			},
 		},
 		Spec: v1.RouteSpec{
@@ -402,12 +497,52 @@ func TestUpdate(t *testing.T) {
 	}
 	fakeRouteController.provider.CleanCalls()
 
+	// delete
+	obj = &v1.Route{
+		Spec: v1.RouteSpec{
+			To:  v1.RouteTargetReference{Name: "other"},
+			TLS: &v1.TLSConfig{},
+		},
+		Status: v1.RouteStatus{
+			Ingress: []v1.RouteIngress{
+				{
+					Host: "foobar.com",
+				},
+			},
+		},
+	}
+
+	obj2 = &v1.Route{
+		ObjectMeta: metav1.ObjectMeta{
+			Annotations: map[string]string{
+				CustomHostAnnotation: "int",
+			},
+		},
+		Spec: v1.RouteSpec{
+			To:  v1.RouteTargetReference{Name: "other"},
+			TLS: &v1.TLSConfig{},
+		},
+		Status: v1.RouteStatus{
+			Ingress: []v1.RouteIngress{
+				{
+					Host: "foobar.com",
+				},
+			},
+		},
+	}
+
+	fakeRouteController.updateRoute(obj2, obj)
+
+	if len(fakeRouteController.provider.Calls()) != 0 {
+		t.Errorf("excepted not delete")
+	}
 }
 
 func TestUpdateAnnotation(t *testing.T) {
 	fakeRouteController := &RouteController{}
 	fakeRouteController.hosttowatch = "test.com"
 	fakeRouteController.clusteralias = "dc1"
+	fakeRouteController.partition = "ext"
 
 	newfake := fake.NewFakeProvider()
 	fakeRouteController.provider = ProviderInterface(newfake)
@@ -554,7 +689,7 @@ func TestUpdateAnnotation(t *testing.T) {
 		ObjectMeta: metav1.ObjectMeta{
 			Annotations: map[string]string{
 				poolRouteMethodAnnotation: "test",
-				CustomHostAnnotation:      "enabled",
+				CustomHostAnnotation:      "ext",
 			},
 		},
 		Spec: v1.RouteSpec{
@@ -573,7 +708,7 @@ func TestUpdateAnnotation(t *testing.T) {
 	obj2 = &v1.Route{
 		ObjectMeta: metav1.ObjectMeta{
 			Annotations: map[string]string{
-				CustomHostAnnotation: "enabled",
+				CustomHostAnnotation: "ext",
 			},
 		},
 		Spec: v1.RouteSpec{

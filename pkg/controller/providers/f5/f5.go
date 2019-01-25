@@ -320,7 +320,12 @@ func (f5 *ProviderF5) CheckPools(routes []v1.Route, hosttowatch string, memberna
 			remove := true
 			splittedpool := strings.Split(pool.Name, "_")[0]
 			for _, route := range routes {
-				_, found := route.Annotations[controller.CustomHostAnnotation]
+				found := false
+				if val, ok := route.Annotations[controller.CustomHostAnnotation]; ok {
+					if val == f5.partition {
+						found = true
+					}
+				}
 				if (strings.HasSuffix(route.Spec.Host, hosttowatch) || found) && route.Spec.Host == splittedpool {
 					remove = false
 					break

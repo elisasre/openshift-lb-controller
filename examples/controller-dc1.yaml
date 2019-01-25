@@ -72,6 +72,8 @@ spec:
           value: "dc.elisa.fi"
         - name: CLUSTERALIAS
           value: "dc1"
+        - name: PARTITION
+          value: "ext"
         - name: F5_ADDR
           value: "1.1.1.1,2.2.2.2"
         - name: F5_USER
