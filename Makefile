@@ -8,7 +8,7 @@ test:
 	./.travis.gofmt.sh
 
 install_deps:
-	govendor sync
+	dep ensure -v
 
 build:
 	rm -rf bin/$(CONTROLLER_NAME)
