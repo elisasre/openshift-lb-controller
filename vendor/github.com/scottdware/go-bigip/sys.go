@@ -11,6 +11,9 @@ const (
 	uriHardware       = "hardware"
 	uriGlobalSettings = "global-settings"
 	uriManagementIp   = "management-ip"
+	uriFile           = "file"
+	uriSslCert        = "ssl-cert"
+	uriSslKey         = "ssl-key"
 	//uriPlatform = "?$select=platform"
 )
 
@@ -211,4 +214,146 @@ func (b *BigIP) ModifyFolder(name string, config *Folder) error {
 // configuration.
 func (b *BigIP) PatchFolder(name string, config *Folder) error {
 	return b.patch(config, uriSys, uriFolder, name)
+}
+
+// Certificates represents a list of installed SSL certificates.
+type Certificates struct {
+	Certificates []Certificate `json:"items,omitempty"`
+}
+
+// Certificate represents an SSL Certificate.
+type Certificate struct {
+	AppService              string `json:"appService,omitempty"`
+	CachePath               string `json:"cachePath,omitempty"`
+	CertificateKeyCurveName string `json:"certificateKeyCurveName,omitempty"`
+	CertificateKeySize      int    `json:"certificateKeySize,omitempty"`
+	CertValidationOptions   string `json:"certValidationOptions,omitempty"`
+	Checksum                string `json:"checksum,omitempty"`
+	CreatedBy               string `json:"createdBy,omitempty"`
+	CreateTime              string `json:"createTime,omitempty"`
+	Email                   string `json:"email,omitempty"`
+	ExpirationDate          int    `json:"expirationDate,omitempty"`
+	ExpirationString        string `json:"expirationString,omitempty"`
+	Fingerprint             string `json:"fingerprint,omitempty"`
+	FullPath                string `json:"fullPath,omitempty"`
+	Generation              int    `json:"generation,omitempty"`
+	IsBundle                string `json:"isBundle,omitempty"`
+	IsDynamic               string `json:"isDynamic,omitempty"`
+	Issuer                  string `json:"issuer,omitempty"`
+	IssuerCert              string `json:"issuerCert,omitempty"`
+	KeyType                 string `json:"keyType,omitempty"`
+	LastUpdateTime          string `json:"lastUpdateTime,omitempty"`
+	Mode                    int    `json:"mode,omitempty"`
+	Name                    string `json:"name,omitempty"`
+	Partition               string `json:"partition,omitempty"`
+	Revision                int    `json:"revision,omitempty"`
+	SerialNumber            string `json:"serialNumber,omitempty"`
+	Size                    uint64 `json:"size,omitempty"`
+	SourcePath              string `json:"sourcePath,omitempty"`
+	Subject                 string `json:"subject,omitempty"`
+	SubjectAlternativeName  string `json:"subjectAlternativeName,omitempty"`
+	SystemPath              string `json:"systemPath,omitempty"`
+	UpdatedBy               string `json:"updatedBy,omitempty"`
+	Version                 int    `json:"version,omitempty"`
+}
+
+// Certificates returns a list of certificates.
+func (b *BigIP) Certificates() (*Certificates, error) {
+	var certs Certificates
+	err, _ := b.getForEntity(&certs, uriSys, uriFile, uriSslCert)
+	if err != nil {
+		return nil, err
+	}
+
+	return &certs, nil
+}
+
+// AddCertificate installs a certificate.
+func (b *BigIP) AddCertificate(cert *Certificate) error {
+	return b.post(cert, uriSys, uriFile, uriSslCert)
+}
+
+// GetCertificate retrieves a Certificate by name. Returns nil if the certificate does not exist
+func (b *BigIP) GetCertificate(name string) (*Certificate, error) {
+	var cert Certificate
+	err, ok := b.getForEntity(&cert, uriSys, uriFile, uriSslCert, name)
+	if err != nil {
+		return nil, err
+	}
+	if !ok {
+		return nil, nil
+	}
+
+	return &cert, nil
+}
+
+// DeleteCertificate removes a certificate.
+func (b *BigIP) DeleteCertificate(name string) error {
+	return b.delete(uriSys, uriFile, uriSslCert, name)
+}
+
+// Keys represents a list of installed keys.
+type Keys struct {
+	Keys []Key `json:"items,omitempty"`
+}
+
+// Key represents a private key associated with a certificate.
+type Key struct {
+	AppService     string `json:"appService,omitempty"`
+	CachePath      string `json:"cachePath,omitempty"`
+	Checksum       string `json:"checksum,omitempty"`
+	CreatedBy      string `json:"createdBy,omitempty"`
+	CreateTime     string `json:"createTime,omitempty"`
+	CurveName      string `json:"curveName,omitempty"`
+	FullPath       string `json:"fullPath,omitempty"`
+	Generation     int    `json:"generation,omitempty"`
+	IsDynamic      string `json:"isDynamic,omitempty"`
+	KeySize        int    `json:"keySize,omitempty"`
+	KeyType        string `json:"keyType,omitempty"`
+	LastUpdateTime string `json:"lastUpdateTime,omitempty"`
+	Mode           int    `json:"mode,omitempty"`
+	Name           string `json:"name,omitempty"`
+	Partition      string `json:"partition,omitempty"`
+	Passphrase     string `json:"passphrase,omitempty"`
+	Revision       int    `json:"revision,omitempty"`
+	SecurityType   string `json:"securityType,omitempty"`
+	Size           uint64 `json:"size,omitempty"`
+	SourcePath     string `json:"sourcePath,omitempty"`
+	SystemPath     string `json:"systemPath,omitempty"`
+	UpdatedBy      string `json:"updatedBy,omitempty"`
+}
+
+// Keys returns a list of keys.
+func (b *BigIP) Keys() (*Keys, error) {
+	var keys Keys
+	err, _ := b.getForEntity(&keys, uriSys, uriFile, uriSslKey)
+	if err != nil {
+		return nil, err
+	}
+
+	return &keys, nil
+}
+
+// AddKey installs a key.
+func (b *BigIP) AddKey(config *Key) error {
+	return b.post(config, uriSys, uriFile, uriSslKey)
+}
+
+// GetKey retrieves a key by name. Returns nil if the key does not exist.
+func (b *BigIP) GetKey(name string) (*Key, error) {
+	var key Key
+	err, ok := b.getForEntity(&key, uriSys, uriFile, uriSslKey, name)
+	if err != nil {
+		return nil, err
+	}
+	if !ok {
+		return nil, nil
+	}
+
+	return &key, nil
+}
+
+// DeleteKey removes a key.
+func (b *BigIP) DeleteKey(name string) error {
+	return b.delete(uriSys, uriFile, uriSslKey, name)
 }

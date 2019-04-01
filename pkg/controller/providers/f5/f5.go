@@ -176,7 +176,7 @@ func (f5 *ProviderF5) ModifyPool(name string, port string, loadBalancingMethod s
 	pool.LoadBalancingMode = targetmode
 	if strings.ToLower(role) == "active" || strings.ToLower(role) == "standby" {
 		log.Printf("modifying slow ramp time pool to 0 %s", name+"_"+port)
-		pool.SlowRampTime = f5.session.IntToPointer(0)
+		pool.SlowRampTime = 0
 		pga = 1
 		if strings.ToLower(role) == "active" {
 			prio = 20
@@ -185,7 +185,7 @@ func (f5 *ProviderF5) ModifyPool(name string, port string, loadBalancingMethod s
 		}
 	} else {
 		log.Printf("modifying slow ramp time pool to 10 %s", name+"_"+port)
-		pool.SlowRampTime = f5.session.IntToPointer(10)
+		pool.SlowRampTime = 10
 	}
 	log.Printf("changing pool %s pga to %d", name+"_"+port, pga)
 	pool.MinActiveMembers = pga
