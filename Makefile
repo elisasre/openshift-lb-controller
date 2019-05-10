@@ -12,10 +12,10 @@ install_deps:
 
 build:
 	rm -rf bin/$(CONTROLLER_NAME)
-	go build -v -i -o bin/$(CONTROLLER_NAME) ./cmd
+	CGO_ENABLED=0 go build -v -o bin/$(CONTROLLER_NAME) ./cmd
 
 build-image:
 	rm -rf $(CONTROLLER_NAME)
-	GOOS=linux GOARCH=amd64 go build -v -i -o $(CONTROLLER_NAME) ./cmd
+	CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -v -o $(CONTROLLER_NAME) ./cmd
 	docker build -t $(IMAGE):latest .
 	docker push $(IMAGE):latest
