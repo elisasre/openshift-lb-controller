@@ -27,7 +27,7 @@ spec:
     - name: latest
       from:
         kind: DockerImage
-        name: <yourdockeregistry>/openshift-lb-controller
+        name: docker.io/elisaoyj/openshift-lb-controller
       importPolicy: {}
 ---
 kind: DeploymentConfig
