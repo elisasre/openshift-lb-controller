@@ -24,7 +24,7 @@ steps:
   image: plugins/docker
   settings:
     registry: docker.io
-    repo: docker.io/openshift-lb-controller
+    repo: docker.io/elisaoyj/openshift-lb-controller
     tags: latest
     dry_run: true
   when:
@@ -40,7 +40,7 @@ steps:
     password:
       from_secret: docker_password
     registry: docker.io
-    repo: docker.io/openshift-lb-controller
+    repo: docker.io/elisaoyj/openshift-lb-controller
     tags:
     - "${DRONE_COMMIT_SHA}"
     - latest
