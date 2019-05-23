@@ -1,0 +1,56 @@
+---
+kind: pipeline
+name: default
+
+platform:
+  os: linux
+  arch: amd64
+
+workspace:
+  base: /go
+  path: src/github.com/ElisaOyj/openshift-lb-controller
+
+steps:
+- name: testAndBuild
+  image: golang:1.11
+  pull: always
+  commands:
+  - make deps
+  - make check
+  - make ensure
+  - make test
+  - make build-linux-amd64
+
+- name: pr-build
+  image: plugins/docker
+  settings:
+    registry: docker.io
+    repo: docker.io/elisaoyj/openshift-lb-controller
+    tags: latest
+    dry_run: true
+  when:
+    branch:
+      excludes:
+      - master
+    event:
+    - pull_request
+
+- name: publish
+  image: plugins/docker
+  settings:
+    password:
+      from_secret: docker_password
+    registry: docker.io
+    repo: docker.io/elisaoyj/openshift-lb-controller
+    tags:
+    - "${DRONE_COMMIT_SHA}"
+    - latest
+    username:
+      from_secret: docker_username
+  when:
+    branch:
+    - master
+    event:
+    - push
+
+...

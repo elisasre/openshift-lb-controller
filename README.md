@@ -12,7 +12,7 @@ Lb-controller makes it possible to have "real" hybrid cloud. For instance you ca
 ## Development
 
 ### Build from source
-1. `make install_deps`
+1. `make ensure`
 2. `make build`
 3. `./bin/openshift-lb-controller --run-outside-cluster`
 
