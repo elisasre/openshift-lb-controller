@@ -1,0 +1,42 @@
+kind: Route
+apiVersion: v1
+metadata:
+  name: demoapp-prod
+  annotations:
+    route.elisa.fi/lbenabled: ext
+  labels:
+    name: demoapp-prod
+    net: ext
+spec:
+  host: fooext.fi
+  to:
+    kind: Service
+    name: demoapp-prod
+    port:
+       targetPort: demoapp-prod
+  tls:
+    termination: edge
+    insecureEdgeTerminationPolicy: Redirect
+  wildcardPolicy: None
+
+---
+kind: Route
+apiVersion: v1
+metadata:
+  name: demoapp-prod-int
+  annotations:
+    route.elisa.fi/lbenabled: int
+  labels:
+    name: demoapp-prod
+    net: int
+spec:
+  host: fooint.fi
+  to:
+    kind: Service
+    name: demoapp-prod
+    port:
+       targetPort: demoapp-prod
+  tls:
+    termination: edge
+    insecureEdgeTerminationPolicy: Redirect
+  wildcardPolicy: None
