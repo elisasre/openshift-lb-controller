@@ -24,8 +24,8 @@ steps:
 - name: pr-build
   image: plugins/docker
   settings:
-    registry: docker.io
-    repo: docker.io/elisaoyj/openshift-lb-controller
+    registry: quay.io
+    repo: quay.io/elisaoyj/openshift-lb-controller
     tags: latest
     dry_run: true
   when:
@@ -40,8 +40,8 @@ steps:
   settings:
     password:
       from_secret: docker_password
-    registry: docker.io
-    repo: docker.io/elisaoyj/openshift-lb-controller
+    registry: quay.io
+    repo: quay.io/elisaoyj/openshift-lb-controller
     tags:
     - "${DRONE_COMMIT_SHA}"
     - latest
