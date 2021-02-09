@@ -12,11 +12,10 @@ workspace:
 
 steps:
 - name: testAndBuild
-  image: golang:1.11
+  image: golang:1.15
   pull: always
   commands:
   - make deps
-  - make check
   - make ensure
   - make test
   - make build-linux-amd64

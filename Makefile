@@ -9,16 +9,12 @@ test:
 
 deps:
 	go get -u golang.org/x/lint/golint
-	go get -u github.com/golang/dep/cmd/dep
 
 gofmt:
 	./hack/gofmt.sh
 
-check:
-	dep check|grep "lock is out of sync"; test $$? -eq 1
-
 ensure:
-	dep ensure -v
+	go mod tidy
 
 build:
 	rm -rf bin/$(CONTROLLER_NAME)
